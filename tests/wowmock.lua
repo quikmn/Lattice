@@ -114,7 +114,14 @@ function impl:Show() self.__shown = true; local s = self.__scripts.OnShow; if s 
 function impl:Hide() local was = self.__shown; self.__shown = false; local s = self.__scripts.OnHide; if s and was then s(self) end end
 function impl:SetShown(v) if v then self:Show() else self:Hide() end end
 function impl:IsShown() return self.__shown end
-function impl:IsVisible() return self.__shown end
+function impl:IsVisible()
+	local f = self
+	while f do
+		if not f.__shown then return false end
+		f = f.__parent
+	end
+	return true
+end
 function impl:SetSize(w, h) self.__w, self.__h = w, h end
 function impl:SetWidth(w) self.__w = w end
 function impl:SetHeight(h) self.__h = h end
@@ -201,7 +208,8 @@ end
 
 local secureTemplates = { SecureUnitButtonTemplate = true, SecureGroupHeaderTemplate = true,
 	SecureRaidGroupHeaderTemplate = true, SecurePartyHeaderTemplate = true, SecureHandlerStateTemplate = true,
-	SecureHandlerBaseTemplate = true, SecureHandlerAttributeTemplate = true, SecureActionButtonTemplate = true }
+	SecureHandlerBaseTemplate = true, SecureHandlerAttributeTemplate = true, SecureActionButtonTemplate = true,
+	SecureGroupPetHeaderTemplate = true }
 
 secureTemplates.LatticeUnitButtonTemplate = true
 
@@ -215,6 +223,22 @@ local function HeaderUnits(h)
 	elseif MOCK.groupSize > 1 and not raid and a.showParty then kind = "PARTY"
 	elseif a.showSolo then kind = "SOLO" end
 	if not kind then return units end
+	if h.__template and h.__template:find("Pet") then
+		-- Pet header: one entry per existing pet.
+		if kind == "RAID" then
+			for i = 1, MOCK.groupSize do
+				if MOCK.units["raidpet" .. i] then units[#units + 1] = "raidpet" .. i end
+			end
+		else
+			if (kind == "SOLO" or a.showPlayer) and MOCK.units.pet then units[#units + 1] = "pet" end
+			if kind == "PARTY" then
+				for i = 1, MOCK.groupSize - 1 do
+					if MOCK.units["partypet" .. i] then units[#units + 1] = "partypet" .. i end
+				end
+			end
+		end
+		return units
+	end
 	local filter = a.groupFilter
 	if kind == "RAID" then
 		for i = 1, MOCK.groupSize do
@@ -229,7 +253,7 @@ local function HeaderUnits(h)
 end
 
 function MOCK.UpdateHeader(h)
-	if h.__attrs._ignore or not h.__shown then return end
+	if h.__attrs._ignore or not h:IsVisible() then return end
 	local units = HeaderUnits(h)
 	local start = h.__attrs.startingIndex or 1
 	local need = math.max(1, #units - (start - 1))
@@ -293,7 +317,7 @@ function CreateFrame(kind, name, parent, template)
 			if secureTemplates[t] then w.__protected = true end
 		end
 	end
-	if template and template:find("GroupHeader") then
+	if template and template:find("Header") then
 		MOCK.headers = MOCK.headers or {}
 		table.insert(MOCK.headers, w)
 		w.__scripts.OnAttributeChanged = function(self, k)
@@ -395,8 +419,11 @@ function MOCK.SetGroup(n, raid)
 	end
 	MOCK.units.player = mk(1)
 	MOCK.units.player.name = "Tester"
+	MOCK.units.pet = { name = "Wolfie", class = "WARRIOR", role = "NONE", hp = 300, maxhp = 400, power = 10, maxpower = 100, connected = true, dead = false }
 	if raid then
 		for i = 1, n do MOCK.units["raid" .. i] = i == 1 and MOCK.units.player or mk(i) end
+		MOCK.units.raidpet1 = MOCK.units.pet
+		if n >= 3 then MOCK.units.raidpet3 = { name = "Imp", class = "WARRIOR", role = "NONE", hp = 200, maxhp = 300, power = 10, maxpower = 100, connected = true, dead = false } end
 	else
 		for i = 1, n - 1 do MOCK.units["party" .. i] = mk(i + 1) end
 	end
@@ -538,5 +565,14 @@ end
 RegisterUnitWatch = function(f) f.__unitwatch = true end
 UnregisterUnitWatch = function() end
 SecureHandlerSetFrameRef = function() end
-ClearOverrideBindings = function() end
-SetOverrideBindingClick = function() end
+MOCK.bindings = {}
+ClearOverrideBindings = function() wipe(MOCK.bindings) end
+SetOverrideBindingClick = function(_, _, key, buttonName)
+	if MOCK.combat then error("ADDON_ACTION_BLOCKED: SetOverrideBindingClick in combat", 2) end
+	MOCK.bindings[key] = buttonName
+end
+MOCK.summons = {}
+C_IncomingSummon = {
+	HasIncomingSummon = function(u) return MOCK.summons[u] ~= nil end,
+	IncomingSummonStatus = function(u) return MOCK.summons[u] or 0 end,
+}

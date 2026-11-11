@@ -144,9 +144,105 @@ step("aura containers + indicator by spell name", function()
 	ns.Auras:Refresh()
 end)
 
+step("pet frames follow the group", function()
+	ns.db.general.showPets = true
+	MOCK.SetGroup(3, false)
+	MOCK.units.partypet2 = { name = "Imp", class = "WARRIOR", role = "NONE", hp = 100, maxhp = 200, power = 1, maxpower = 1, connected = true }
+	ns:ApplySettingsNow("layout")
+	MOCK.RunTimers()
+	MOCK.UpdateAllHeaders()
+	local found = {}
+	for child in ns.Headers.Children(ns.Headers.pets) do
+		local u = child:GetAttribute("unit")
+		if u and child.__shown then found[u] = true end
+		check(child.latticeReady, "pet button not decorated (created late?)")
+	end
+	check(found.pet and found.partypet2, "expected pet and partypet2 frames")
+	for _, b in ipairs(ns.Buttons.all) do
+		if b.unit == "pet" then ns.Buttons:UpdateAll(b) end
+	end
+	ns.db.general.showPets = false
+	ns:ApplySettingsNow("layout")
+	MOCK.RunTimers()
+end)
+
+step("hover-cast keys", function()
+	local HC = ns.HoverCast
+	check(HC:Add({ key = "shift-1", action = "spell", value = 139, fallback = true }), "add failed")
+	check(HC:Add({ key = "CTRL-SHIFT-2", action = "spell", value = 2061, fallback = false }), "add 2 failed")
+	MOCK.RunTimers()
+	check(MOCK.bindings["SHIFT-1"] == "LatticeHoverCast2" or MOCK.bindings["SHIFT-1"] == "LatticeHoverCast1", "SHIFT-1 not bound")
+	local function textFor(key)
+		local b = _G[MOCK.bindings[key]]
+		return b and b:GetAttribute("macrotext") or ""
+	end
+	check(textFor("SHIFT-1"):find("[@mouseover,help,nodead][help,nodead]", 1, true), "fallback macro wrong: " .. textFor("SHIFT-1"))
+	check(not textFor("CTRL-SHIFT-2"):find("[help,nodead]", 1, true), "no-fallback macro wrong: " .. textFor("CTRL-SHIFT-2"))
+	check(not textFor("SHIFT-1"):find("@player", 1, true), "must never target self")
+	-- in combat: changes queue, no protected calls
+	MOCK.combat = true
+	HC:Remove(1)
+	MOCK.RunTimers()
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.RunTimers()
+	local n = 0
+	for _ in pairs(MOCK.bindings) do n = n + 1 end
+	check(n == 1, "expected 1 binding after removal, got " .. n)
+	HC:Remove(1)
+	MOCK.RunTimers()
+end)
+
+step("summon and dead states", function()
+	MOCK.SetGroup(5, false)
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.UpdateAllHeaders()
+	MOCK.RunTimers()
+	MOCK.summons.party1 = Enum.SummonStatus.Pending
+	MOCK.units.party2.dead = true
+	MOCK.units.party3.connected = false
+	for _, u in ipairs({ "party1", "party2", "party3" }) do
+		MOCK.Fire("INCOMING_SUMMON_CHANGED", u)
+		MOCK.Fire("UNIT_HEALTH", u)
+	end
+	local shown
+	for _, b in ipairs(ns.Buttons.all) do
+		if b.unit == "party1" and b.visual.summon:IsShown() then shown = true end
+	end
+	check(shown, "summon icon not shown")
+	MOCK.summons.party1 = nil
+end)
+
+step("class presets add only known spells", function()
+	local realClass = UnitClass
+	UnitClass = function(u) if u == "player" then return "Druid", "DRUID", 11 end return realClass(u) end
+	wipe(ns.db.auras.indicators)
+	local before = 0
+	local added, skipped = ns.Auras:AddClassPresets()
+	UnitClass = realClass
+	check(#added == 1 and added[1] == "Rejuvenation", "expected Rejuvenation only, got " .. table.concat(added, ","))
+	check(#skipped >= 1, "expected unknown spells to be skipped")
+	local ind = ns.db.auras.indicators[#ns.db.auras.indicators]
+	check(#ind.spells >= 2, "expected every Rejuvenation rank")
+	check(#ns.db.auras.indicators == before + 1, "wrong indicator count")
+	MOCK.RunTimers()
+	-- second press adds nothing
+	UnitClass = function(u) if u == "player" then return "Druid", "DRUID", 11 end return realClass(u) end
+	local again = ns.Auras:AddClassPresets()
+	UnitClass = realClass
+	check(#again == 0, "presets added twice")
+end)
+
+step("settings upgrade from schema 1", function()
+	local sv = { schema = 1, profiles = { Default = {} }, chars = { ["A-B"] = { profile = "Default", bindings = {} } } }
+	ns.Database:Migrate(sv)
+	check(sv.schema == ns.Database.SCHEMA, "schema not bumped")
+	check(type(sv.chars["A-B"].hover) == "table", "hover list not created")
+end)
+
 step("options window: every page builds", function()
 	ns.Options:Open()
-	for _, id in ipairs({ "general", "layout", "appearance", "auras", "clickcast", "profiles" }) do
+	for _, id in ipairs({ "general", "layout", "appearance", "auras", "clickcast", "hovercast", "profiles" }) do
 		ns.Options:ShowPage(id)
 	end
 	ns.Options:RebuildAll()

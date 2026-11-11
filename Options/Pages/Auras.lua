@@ -112,6 +112,24 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	box:SetScript("OnEnterPressed", function() add:Click() end)
 	s:Add(row, 26)
 
+	local _, class = UnitClass("player")
+	if ns.Auras.PRESETS[class] then
+		local presetRow = CreateFrame("Frame")
+		local presetStatus = W.Text(presetRow, T.fontSmall + 1, T.muted)
+		local preset = W.Button(presetRow, "Add my class's HoTs and shields", function()
+			local added, skipped = ns.Auras:AddClassPresets()
+			if #added == 0 then
+				presetStatus:SetText("|cffffcc66Nothing new to add (already added, or not learned yet).|r")
+				return
+			end
+			O:RebuildPage("auras")
+		end, 240)
+		preset:SetPoint("LEFT")
+		presetStatus:SetPoint("LEFT", preset, "RIGHT", 10, 0)
+		presetStatus:SetText(table.concat(ns.Auras.PRESETS[class], ", "))
+		s:Add(presetRow, 26)
+	end
+
 	for i = 1, #ns.db.auras.indicators do
 		IndicatorEditor(s, i)
 	end

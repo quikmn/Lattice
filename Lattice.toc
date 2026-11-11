@@ -2,7 +2,7 @@
 ## Title: Lattice
 ## Notes: Clean, easy-to-configure party & raid frames with click-casting, aura indicators and dispel highlights.
 ## Author: quikmn
-## Version: 0.1.0
+## Version: 0.2.0
 ## SavedVariables: LatticeDB
 ## IconTexture: Interface\Icons\Spell_Holy_PrayerOfHealing
 ## AddonCompartmentFunc: Lattice_OnCompartmentClick
@@ -24,6 +24,7 @@ Frames\Header.lua
 Frames\TestMode.lua
 
 Modules\ClickCast.lua
+Modules\HoverCast.lua
 Modules\Mover.lua
 
 Options\Widgets.lua
@@ -33,6 +34,7 @@ Options\Pages\Layout.lua
 Options\Pages\Appearance.lua
 Options\Pages\Auras.lua
 Options\Pages\ClickCast.lua
+Options\Pages\HoverCast.lua
 Options\Pages\Profiles.lua
 
 Core\Boot.lua

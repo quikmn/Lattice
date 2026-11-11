@@ -400,7 +400,7 @@ end)
 ------------------------------------------------------------------------
 -- Accepts "774, 8936" or "Rejuvenation". For names, every rank in the player's
 -- spellbook is included (Forever keeps separate IDs per rank).
-function A:ResolveSpells(text)
+function A:ResolveSpells(text, knownOnly)
 	local ids, seen = {}, {}
 	local function add(id)
 		if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
@@ -426,7 +426,7 @@ function A:ResolveSpells(text)
 					end
 				end
 			end
-			if C_Spell and C_Spell.GetSpellInfo then
+			if not knownOnly and C_Spell and C_Spell.GetSpellInfo then
 				local info = C_Spell.GetSpellInfo(token)
 				if info and info.spellID then add(info.spellID) end
 			end
@@ -435,13 +435,62 @@ function A:ResolveSpells(text)
 	return ids
 end
 
-function A:AddIndicator(name, spells)
+function A:AddIndicator(name, spells, extra, noRefresh)
 	local list = ns.db.auras.indicators
-	list[#list + 1] = {
+	local ind = {
 		enabled = true, name = name, spells = spells, mine = true,
 		point = "TOPLEFT", x = 2, y = -2, size = 8, style = "square",
 		color = { 0.3, 1, 0.4, 1 }, swipe = false,
 	}
-	self:Refresh()
+	for k, v in pairs(extra or {}) do ind[k] = v end
+	list[#list + 1] = ind
+	if not noRefresh then self:Refresh() end
 	return #list
+end
+
+------------------------------------------------------------------------
+-- Class presets: the HoTs and shields a healer usually tracks, as small
+-- coloured squares along the top edge. Only spells you know are added.
+------------------------------------------------------------------------
+local PRESET_SLOTS = {
+	{ point = "TOP", x = -12, y = -2, color = { 0.30, 1.00, 0.40, 1 } },
+	{ point = "TOP", x = 0,   y = -2, color = { 1.00, 0.85, 0.20, 1 } },
+	{ point = "TOP", x = 12,  y = -2, color = { 0.35, 0.65, 1.00, 1 } },
+	{ point = "TOP", x = 24,  y = -2, color = { 1.00, 0.45, 0.85, 1 } },
+}
+
+A.PRESETS = {
+	PRIEST  = { "Renew", "Power Word: Shield", "Prayer of Mending", "Fear Ward" },
+	DRUID   = { "Rejuvenation", "Regrowth", "Lifebloom", "Wild Growth" },
+	SHAMAN  = { "Earth Shield", "Riptide", "Water Shield" },
+	PALADIN = { "Beacon of Light", "Sacred Shield", "Blessing of Protection" },
+	MONK    = { "Renewing Mist", "Enveloping Mist", "Soothing Mist" },
+	EVOKER  = { "Reversion", "Echo", "Dream Breath" },
+}
+
+-- Returns the names added and the names skipped (not in your spellbook).
+function A:AddClassPresets()
+	local _, class = UnitClass("player")
+	local names = self.PRESETS[class]
+	if not names then return {}, {} end
+	local have = {}
+	for _, ind in ipairs(ns.db.auras.indicators) do
+		if ind.name then have[ind.name:lower()] = true end
+	end
+	local added, skipped, slot = {}, {}, 0
+	for _, name in ipairs(names) do
+		if not have[name:lower()] then
+			local ids = self:ResolveSpells(name, true)
+			if #ids > 0 and slot < #PRESET_SLOTS then
+				slot = slot + 1
+				local p = PRESET_SLOTS[slot]
+				self:AddIndicator(name, ids, { point = p.point, x = p.x, y = p.y, color = p.color }, true)
+				added[#added + 1] = name
+			else
+				skipped[#skipped + 1] = name
+			end
+		end
+	end
+	if #added > 0 then self:Refresh() end
+	return added, skipped
 end

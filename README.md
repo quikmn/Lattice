@@ -7,6 +7,15 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 ## Use
 - `/lattice` opens the settings. `/lattice unlock` lets you move the frames. `/lattice preview 20` shows fake frames.
 - `/lattice probe` lists which unit values the game is hiding from addons right now.
+- `/lattice status` shows why frames or auras are or aren't showing.
+
+## Features
+- Party, raid and large-raid layouts that switch automatically. Pet frames in their own movable block (Layout page).
+- Click-casting on frames: mouse buttons 1-5 with Shift, Ctrl and Alt.
+- Hover-casting: bind a key to a spell and it casts on whoever the mouse is over, optionally falling back to your friendly target. It never falls back to you.
+- Your HoTs and buffs, debuffs, dispel highlight, boss debuff and big defensives. Grid-style spell indicators, plus one-click presets for your class.
+- Incoming heals, shields, range fade, role, leader, raid marker, ready check, resurrect and summon icons. Dead players tint red, offline players grey.
+- Profiles per spec, import and export.
 
 ## How it copes with Forever's secret values
 - Health, heals, absorbs and range are passed straight to status bars, alpha and colour curves, so the addon never does math on them.

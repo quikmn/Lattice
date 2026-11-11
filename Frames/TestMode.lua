@@ -70,7 +70,11 @@ local function Render(btn)
 	else
 		v.health:SetStatusBarColor(r, g, b)
 	end
-	if A.backgroundMode == "class" then
+	if A.dimWhenGone and d.offline then
+		v.bg:SetVertexColor(0.18, 0.18, 0.18, A.backgroundColor[4])
+	elseif A.dimWhenGone and d.dead then
+		v.bg:SetVertexColor(0.30, 0.07, 0.07, A.backgroundColor[4])
+	elseif A.backgroundMode == "class" then
 		v.bg:SetVertexColor(r * 0.25, g * 0.25, b * 0.25, A.backgroundColor[4])
 	else
 		v.bg:SetVertexColor(unpack(A.backgroundColor))
@@ -89,7 +93,8 @@ local function Render(btn)
 	v.power:SetStatusBarColor(pc.r, pc.g, pc.b)
 
 	v.name:SetText(d.name:sub(1, A.nameLength))
-	if A.nameClassColor then v.name:SetTextColor(r, g, b) else v.name:SetTextColor(1, 1, 1) end
+	local dim = A.dimWhenGone and (d.dead or d.offline) and 0.55 or 1
+	if A.nameClassColor then v.name:SetTextColor(r * dim, g * dim, b * dim) else v.name:SetTextColor(dim, dim, dim) end
 
 	if d.offline then
 		v.status:SetText(PLAYER_OFFLINE or "Offline"); v.status:Show(); v.healthText:Hide()
@@ -100,7 +105,7 @@ local function Render(btn)
 		if A.statusText == "percent" then
 			v.healthText:SetFormattedText("%d%%", d.hp); v.healthText:Show(); v.healthText:SetAlpha(1)
 		elseif A.statusText == "deficit" and d.hp < 100 then
-			v.healthText:SetFormattedText("-%d", (100 - d.hp) * 120); v.healthText:Show(); v.healthText:SetAlpha(1)
+			v.healthText:SetFormattedText("-%.1fk", (100 - d.hp) * 0.12); v.healthText:Show(); v.healthText:SetAlpha(1)
 		else
 			v.healthText:Hide()
 		end

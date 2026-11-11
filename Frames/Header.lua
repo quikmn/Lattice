@@ -10,6 +10,7 @@ ns.Headers = H
 H.party = nil
 H.raidGroups = {}
 H.raidCombined = nil
+H.pets = nil
 H.activeLayout = nil -- "party" | "raid" | "raid40"
 
 local TEMPLATE = "LatticeUnitButtonTemplate"
@@ -19,8 +20,8 @@ HIDDEN:Hide()
 ------------------------------------------------------------------------
 -- Creation
 ------------------------------------------------------------------------
-local function NewHeader(name, parent)
-	local hdr = CreateFrame("Frame", name, parent, "SecureGroupHeaderTemplate")
+local function NewHeader(name, parent, template)
+	local hdr = CreateFrame("Frame", name, parent, template or "SecureGroupHeaderTemplate")
 	hdr:SetAttribute("template", TEMPLATE)
 	hdr:SetAttribute("templateType", "Button")
 	return hdr
@@ -47,6 +48,14 @@ local function Precreate(hdr, count)
 			ns.Buttons:Setup(child)
 		end
 	end
+	-- Release the units the buttons briefly showed, so a header that ends up
+	-- hidden doesn't keep stale buttons receiving updates.
+	hdr:SetAttribute("_ignore", "precreate")
+	hdr:SetAttribute("showSolo", false)
+	hdr:SetAttribute("showParty", false)
+	hdr:SetAttribute("showRaid", false)
+	hdr:SetAttribute("_ignore", nil)
+	hdr:SetAttribute("latticeRev", -1)
 end
 
 function H:Create()
@@ -64,6 +73,19 @@ function H:Create()
 
 	self.raidCombined = NewHeader("LatticeRaidCombined", raidAnchor)
 	Precreate(self.raidCombined, 40)
+
+	-- Pets (hunter, warlock, ...) get their own movable block.
+	-- Guarded: if pets fail on this client, party and raid frames still work.
+	local ok, err = pcall(function()
+		local petAnchor = ns.Mover:GetAnchor("pets", "Pets")
+		local hdr = NewHeader("LatticePetHeader", petAnchor, "SecureGroupPetHeaderTemplate")
+		Precreate(hdr, 20)
+		self.pets = hdr
+	end)
+	if not ok then
+		self.pets = nil
+		ns:Print("Pet frames unavailable: " .. tostring(err))
+	end
 
 	self:ApplyAll()
 end
@@ -278,10 +300,52 @@ function H:ApplyRaid()
 	self.activeLayout = IsInRaid() and key or "party"
 end
 
+-- Pet frames: same width as the active layout, shorter, no power bar.
+function H:ApplyPets()
+	local hdr = self.pets
+	if not hdr then return end
+	hdr.latticeAnchor = hdr.latticeAnchor or hdr:GetParent()
+	local key = IsInRaid() and self:LayoutKeyForRoster() or "party"
+	local base = ns.db.layouts[key]
+	local L = {}
+	for k, v in pairs(base) do L[k] = v end
+	L.height = math.max(18, math.floor(base.height * 0.6 + 0.5))
+	L.showPower = false
+	hdr:SetAttribute("_ignore", "config")
+	hdr:SetAttribute("showRaid", true)
+	hdr:SetAttribute("showParty", true)
+	hdr:SetAttribute("showPlayer", true)
+	hdr:SetAttribute("showSolo", ns.db.layouts.party.showSolo)
+	hdr:SetAttribute("groupFilter", nil)
+	hdr:SetAttribute("groupBy", nil)
+	hdr:SetAttribute("sortMethod", "INDEX")
+	ConfigureGrowth(hdr, L, 5, 8)
+	ResizeChildren(hdr, L)
+	hdr:ClearAllPoints()
+	hdr:SetPoint("TOPLEFT", hdr.latticeAnchor, "TOPLEFT", 0, 0)
+	hdr:SetAttribute("_ignore", nil)
+	local G = ns.db.general
+	local cond = "hide"
+	if G.enabled and G.showPets then
+		cond = ns.db.layouts.party.showSolo and "show" or "[group] show; hide"
+	end
+	SetHeaderVisible(hdr, cond)
+	Refresh(hdr)
+	local cols, rows = 1, 5
+	if L.orientation == "HORIZONTAL" then cols, rows = 5, 1 end
+	ns.Mover:FitAnchor("pets", cols * (L.width + L.spacing), rows * (L.height + L.spacing))
+end
+
+local function SafeApplyPets(self)
+	local ok, err = pcall(self.ApplyPets, self)
+	if not ok and ns.db.debug then ns:Print("Pet frames: " .. tostring(err)) end
+end
+
 function H:ApplyAll()
 	ns:RunOutOfCombat("headers-apply", function()
 		self:ApplyParty()
 		self:ApplyRaid()
+		SafeApplyPets(self)
 		ns.Mover:RestoreAll()
 		ns.Buttons:UpdateAllButtons()
 	end)
@@ -295,6 +359,7 @@ function H:OnRosterChanged()
 		if key ~= self.activeLayout or ns.db.layouts[raidKey].collapseEmptyGroups then
 			self:ApplyRaid()
 			if key == "party" then self.activeLayout = "party" end
+			SafeApplyPets(self)
 		end
 	end)
 end
@@ -305,6 +370,7 @@ function H:SetPreviewHidden(hidden)
 	if self.party then self.party:SetAlpha(a) end
 	for _, hdr in ipairs(self.raidGroups) do hdr:SetAlpha(a) end
 	if self.raidCombined then self.raidCombined:SetAlpha(a) end
+	if self.pets then self.pets:SetAlpha(a) end
 end
 
 ------------------------------------------------------------------------

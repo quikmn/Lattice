@@ -29,6 +29,8 @@ local function HelpfulSpells()
 	return out
 end
 
+O.HelpfulSpells = HelpfulSpells
+
 local MOD_ITEMS = {
 	{ value = "", text = "No modifier" }, { value = "shift", text = "Shift" }, { value = "ctrl", text = "Ctrl" },
 	{ value = "alt", text = "Alt" }, { value = "ctrl-shift", text = "Ctrl + Shift" }, { value = "alt-shift", text = "Alt + Shift" },

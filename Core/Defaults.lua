@@ -30,37 +30,39 @@ ns.Defaults = {
 		smoothBars = true,
 		tooltips = true,
 		minimapIcon = true,
+		showPets = false,              -- pet frames (hunter, warlock, ...) in their own movable block
 	},
 
 	layouts = {
-		party  = layout({ width = 96, height = 48, groupBy = "ROLE", showSolo = false }),
-		raid   = layout({ width = 80, height = 42 }),
-		raid40 = layout({ width = 66, height = 34, showPower = false }),
+		party  = layout({ width = 110, height = 46, groupBy = "ROLE", showSolo = false }),
+		raid   = layout({ width = 86, height = 40 }),
+		raid40 = layout({ width = 70, height = 32, showPower = false }),
 	},
 
 	positions = {
 		party = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -220 },
 		raid  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -220 },
+		pets  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -520 },
 	},
 
 	appearance = {
-		texture = "flat",              -- flat | blizzard | gradient
+		texture = "lattice",           -- lattice | flat | smooth | raid
 		healthColor = "class",         -- class | custom | gradient (gradient = by health %, via color curve)
 		customHealthColor = { 0.18, 0.80, 0.44, 1 },
-		backgroundColor = { 0.06, 0.06, 0.07, 0.9 },
+		backgroundColor = { 0.07, 0.07, 0.08, 0.92 },
 		backgroundMode = "dark",       -- dark | class (dim class color behind missing health)
 		borderColor = { 0, 0, 0, 1 },
 		borderSize = 1,
-		powerHeight = 4,
+		powerHeight = 3,
 		powerColorByType = true,
 
-		nameSize = 11,
+		nameSize = 12,
 		nameOutline = true,
 		nameClassColor = false,
-		nameLength = 8,
+		nameLength = 10,
 		namePoint = "CENTER",
 
-		statusText = "none",           -- none | percent | deficit (shown via secret-safe APIs only)
+		statusText = "deficit",        -- none | percent | deficit (shown via secret-safe APIs only)
 		statusSize = 10,
 
 		targetHighlight = true,
@@ -75,6 +77,8 @@ ns.Defaults = {
 		leaderIcon = true,
 		raidIcon = true,  raidIconSize = 14, raidIconPoint = "TOP",
 		readyCheck = true,
+		summonIcon = true,
+		dimWhenGone = true,            -- grey/red tint for offline and dead players
 		hideDamagerIcon = true,
 	},
 

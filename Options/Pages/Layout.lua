@@ -83,6 +83,12 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		set = function(v) ns.db.layouts[editing].groupBy = v; ns:ApplySettings("layout") end,
 	})
 
+	W.Header(s, "Pets")
+	W.Toggle(s, { label = "Show pet frames (hunter, warlock and other pets)",
+		get = function() return ns.db.general.showPets end,
+		set = function(v) ns.db.general.showPets = v; ns:ApplySettings("layout") end })
+	W.Note(s, "Pets get their own block. Unlock frames to move it.")
+
 	W.Header(s, "Position")
 	W.Note(s, "Use |cffffffffUnlock frames|r at the bottom left to drag party and raid frames separately.")
 	local reset = W.Button(nil, "Reset positions", function()

@@ -14,6 +14,7 @@ B.byUnit = {}    -- unit token -> { [btn] = true }
 local issecret = S.IsSecret
 
 local TEXTURES = {
+	lattice  = "Interface\\AddOns\\Lattice\\Media\\Bar",
 	flat     = "Interface\\Buttons\\WHITE8X8",
 	smooth   = "Interface\\TargetingFrame\\UI-StatusBar",
 	raid     = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill",
@@ -129,8 +130,12 @@ function B:Build(btn)
 	v.ready = over:CreateTexture(nil, "OVERLAY")
 	v.ready:Hide()
 	v.rez = over:CreateTexture(nil, "OVERLAY")
-	v.rez:SetTexture("Interface\\RaidFrame\\Raid-Icon-Rez")
+	if not pcall(v.rez.SetAtlas, v.rez, "RaidFrame-Icon-Rez") then
+		v.rez:SetTexture("Interface\\RaidFrame\\Raid-Icon-Rez")
+	end
 	v.rez:Hide()
+	v.summon = over:CreateTexture(nil, "OVERLAY")
+	v.summon:Hide()
 
 	-- Borders: base, aggro, target, mouseover (dispel border is owned by Auras)
 	v.baseBorder = U.Border(v, 1, 0, 0, 0, 1, "BORDER")
@@ -268,6 +273,9 @@ function B:ApplyLayout(btn)
 	v.rez:SetSize(rc, rc)
 	v.rez:ClearAllPoints()
 	v.rez:SetPoint("CENTER", v.health)
+	v.summon:SetSize(rc, rc)
+	v.summon:ClearAllPoints()
+	v.summon:SetPoint("CENTER", v.health)
 
 	v.target.border:SetColor(unpack(A.targetHighlightColor))
 	v.target.border:SetSize(math.max(1, bs + 1))
@@ -294,6 +302,7 @@ function B:UpdateHealthColor(btn)
 	local _, class = UnitClass(unit)
 	class = S.Plain(class, nil)
 	local r, g, b = U.ClassColor(class)
+	if unit:find("pet", 1, true) then r, g, b = 0.35, 0.72, 0.38 end
 
 	if not UnitIsConnected(unit) then
 		v.health:SetStatusBarColor(0.35, 0.35, 0.35)
@@ -311,8 +320,13 @@ function B:UpdateHealthColor(btn)
 		v.health:SetStatusBarColor(r, g, b)
 	end
 
-	if A.backgroundMode == "class" then
-		v.bg:SetVertexColor(r * 0.25, g * 0.25, b * 0.25, A.backgroundColor[4])
+	local bgA = A.backgroundColor[4]
+	if A.dimWhenGone and not UnitIsConnected(unit) then
+		v.bg:SetVertexColor(0.18, 0.18, 0.18, bgA)
+	elseif A.dimWhenGone and UnitIsDeadOrGhost(unit) then
+		v.bg:SetVertexColor(0.30, 0.07, 0.07, bgA)
+	elseif A.backgroundMode == "class" then
+		v.bg:SetVertexColor(r * 0.25, g * 0.25, b * 0.25, bgA)
 	else
 		v.bg:SetVertexColor(unpack(A.backgroundColor))
 	end
@@ -418,13 +432,36 @@ function B:UpdateName(btn)
 	else
 		v.name:SetText(Utf8Sub(name or "?", A.nameLength))
 	end
+	local dim = A.dimWhenGone and IsGone(unit) and 0.55 or 1
 	if A.nameClassColor then
 		local _, class = UnitClass(unit)
-		v.name:SetTextColor(U.ClassColor(S.Plain(class, nil)))
+		local r, g, b = U.ClassColor(S.Plain(class, nil))
+		v.name:SetTextColor(r * dim, g * dim, b * dim)
 	else
-		v.name:SetTextColor(1, 1, 1)
+		v.name:SetTextColor(dim, dim, dim)
 	end
 end
+
+local SUMMON_ATLAS = {
+	Pending = "RaidFrame-Icon-SummonPending",
+	Accepted = "RaidFrame-Icon-SummonAccepted",
+	Declined = "RaidFrame-Icon-SummonDeclined",
+}
+
+-- Incoming summon (readable for group members; guarded in case it's ever secret).
+local function SummonAtlas(unit)
+	if not (C_IncomingSummon and C_IncomingSummon.HasIncomingSummon) then return nil end
+	local has = S.Plain(C_IncomingSummon.HasIncomingSummon(unit), false)
+	if not has then return nil end
+	local status = S.Plain(C_IncomingSummon.IncomingSummonStatus(unit), nil)
+	local SS = Enum.SummonStatus
+	if not (SS and status) then return SUMMON_ATLAS.Pending end
+	if status == SS.Accepted then return SUMMON_ATLAS.Accepted end
+	if status == SS.Declined then return SUMMON_ATLAS.Declined end
+	if status == SS.Pending then return SUMMON_ATLAS.Pending end
+	return nil
+end
+B.SummonAtlas = SummonAtlas
 
 function B:UpdateStatus(btn)
 	local unit, v = btn.unit, btn.visual
@@ -449,6 +486,13 @@ function B:UpdateStatus(btn)
 	end
 	local rez = UnitHasIncomingResurrection and S.Plain(UnitHasIncomingResurrection(unit), false)
 	v.rez:SetShown(rez and UnitIsDeadOrGhost(unit) and true or false)
+
+	local atlas = Appearance().summonIcon and not v.rez:IsShown() and SummonAtlas(unit)
+	if atlas and pcall(v.summon.SetAtlas, v.summon, atlas) then
+		v.summon:Show()
+	else
+		v.summon:Hide()
+	end
 end
 
 function B:UpdateRange(btn)
@@ -590,6 +634,7 @@ local unitEvents = {
 	UNIT_IN_RANGE_UPDATE = B.UpdateRange,
 	UNIT_PHASE = B.UpdateRange,
 	INCOMING_RESURRECT_CHANGED = B.UpdateStatus,
+	INCOMING_SUMMON_CHANGED = B.UpdateStatus,
 	PLAYER_FLAGS_CHANGED = B.UpdateStatus,
 }
 
@@ -600,6 +645,7 @@ function B:RegisterEvents()
 			if event == "UNIT_HEALTH" or event == "UNIT_CONNECTION" or event == "UNIT_FLAGS" then
 				ForUnit(unit, B.UpdateStatus)
 				ForUnit(unit, B.UpdateHealthColor)
+				ForUnit(unit, B.UpdateName)
 			end
 		end)
 	end

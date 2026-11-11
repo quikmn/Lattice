@@ -22,7 +22,7 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 	W.Color(s, Bind("appearance.backgroundColor", "appearance", { label = "Background color", hasAlpha = true }))
 	W.Dropdown(s, Bind("appearance.texture", "appearance", {
 		label = "Bar texture",
-		items = { { value = "flat", text = "Flat" }, { value = "smooth", text = "Smooth" }, { value = "raid", text = "Blizzard raid" } },
+		items = { { value = "lattice", text = "Lattice (soft shade)" }, { value = "flat", text = "Flat" }, { value = "smooth", text = "Smooth" }, { value = "raid", text = "Blizzard raid" } },
 	}))
 	W.Toggle(s, Bind("appearance.healPrediction", "appearance", { label = "Show incoming heals" }))
 	W.Toggle(s, Bind("appearance.absorbs", "appearance", { label = "Show shields and heal absorbs" }))
@@ -63,4 +63,6 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 	W.Dropdown(s, Bind("appearance.raidIconPoint", "appearance", { label = "Raid marker position", items = POINT_ITEMS }))
 	W.Slider(s, Bind("appearance.raidIconSize", "appearance", { label = "Raid marker size", min = 8, max = 32, step = 1 }))
 	W.Toggle(s, Bind("appearance.readyCheck", "appearance", { label = "Ready check icons" }))
+	W.Toggle(s, Bind("appearance.summonIcon", "appearance", { label = "Incoming summon icon" }))
+	W.Toggle(s, Bind("appearance.dimWhenGone", "appearance", { label = "Grey out offline and tint dead players red" }))
 end)

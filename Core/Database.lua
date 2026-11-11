@@ -15,8 +15,38 @@ local U = ns.Util
 local DB = {}
 ns.Database = DB
 
-local SCHEMA = 1
+local SCHEMA = 2
 DB.DEFAULT_PROFILE = "Default"
+DB.SCHEMA = SCHEMA
+
+-- Saved-variable upgrades. MIGRATIONS[n] turns schema n-1 data into schema n.
+-- Profiles only store values that differ from the defaults, so changing a
+-- default needs no migration; renaming or reshaping a setting does.
+local MIGRATIONS = {
+	[2] = function(sv)
+		-- 0.2.0: hover-cast keys are stored per character.
+		for _, char in pairs(sv.chars or {}) do
+			char.hover = char.hover or {}
+		end
+	end,
+}
+DB.MIGRATIONS = MIGRATIONS
+
+function DB:Migrate(sv)
+	local from = sv.schema or SCHEMA
+	for v = from + 1, SCHEMA do
+		local fn = MIGRATIONS[v]
+		if fn then
+			local ok, err = pcall(fn, sv)
+			if not ok then
+				ns:Print("Settings upgrade to version " .. v .. " failed: " .. tostring(err))
+				break
+			end
+		end
+		sv.schema = v
+	end
+	sv.schema = math.max(sv.schema or SCHEMA, from)
+end
 
 function DB:CharKey()
 	local name, realm = UnitFullName("player")
@@ -27,9 +57,12 @@ end
 function DB:Initialize()
 	LatticeDB = LatticeDB or {}
 	local sv = LatticeDB
-	sv.schema = sv.schema or SCHEMA
+	local fresh = sv.schema == nil and sv.profiles == nil
 	sv.profiles = sv.profiles or {}
 	sv.chars = sv.chars or {}
+	if fresh then sv.schema = SCHEMA end
+	sv.schema = sv.schema or 1
+	self:Migrate(sv)
 
 	local key = self:CharKey()
 	sv.chars[key] = sv.chars[key] or {}
@@ -37,6 +70,7 @@ function DB:Initialize()
 	char.profile = char.profile or DB.DEFAULT_PROFILE
 	char.specProfiles = char.specProfiles or {}
 	char.bindings = char.bindings or U.CopyTable(ns.DefaultBindings())
+	char.hover = char.hover or {}
 
 	if not sv.profiles[char.profile] then
 		sv.profiles[char.profile] = {}
