@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\FrameXML\UI.xsd">
+	<!--
+		Unit button template used by the secure group headers.
+		Only a default size lives here; Lattice resizes and decorates the
+		buttons from Lua, out of combat. No secure snippets are used.
+	-->
+	<Button name="LatticeUnitButtonTemplate" virtual="true" inherits="SecureUnitButtonTemplate">
+		<Size x="72" y="36"/>
+	</Button>
+</Ui>
