@@ -1,0 +1,6 @@
+package-as: Lattice
+
+ignore:
+  - README.md
+  - tests
+  - .github

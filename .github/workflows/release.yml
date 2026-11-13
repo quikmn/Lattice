@@ -1,0 +1,21 @@
+# Push a tag like v1.0.0 and this builds EverlookDB-v1.0.0.zip and a GitHub release.
+# WowUp (and other GitHub-aware addon managers) install and update from those releases.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
