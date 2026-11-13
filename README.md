@@ -31,6 +31,11 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 ## Tests
 `python -P tests/run.py` loads the addon in Lua 5.1 against a fake WoW API whose secret values throw on misuse. It needs `pip install lupa`.
 
+## Install
+WowUp: pick **World of Warcraft: Forever**, then Get Addons → Install from URL, and paste `https://github.com/quikmn/Lattice`.
+
+By hand: download the latest zip from Releases and unzip it into `World of Warcraft\_forever_\Interface\AddOns`.
+
 ## License
 
 GPL-3.0-or-later (see LICENSE). Not affiliated with Blizzard Entertainment.
