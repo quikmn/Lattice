@@ -4,7 +4,7 @@
 ## Author: quikmn
 ## Version: 0.2.0
 ## SavedVariables: LatticeDB
-## IconTexture: Interface\Icons\Spell_Holy_PrayerOfHealing
+## IconTexture: Interface\AddOns\Lattice\Media\icon
 ## AddonCompartmentFunc: Lattice_OnCompartmentClick
 ## AddonCompartmentFuncOnEnter: Lattice_OnCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Lattice_OnCompartmentLeave
