@@ -205,7 +205,10 @@ function H:ApplyParty()
 	hdr:SetAttribute("_ignore", nil)
 	SetHeaderVisible(hdr, ns.db.general.enabled and "[group:raid] hide; show" or "hide")
 	Refresh(hdr)
-	ns.Mover:FitAnchor("party", hdr:GetWidth(), hdr:GetHeight())
+	-- the drag box covers a full party (5 frames), not just the frames shown right now
+	local cols, rows = 1, 5
+	if L.orientation == "HORIZONTAL" then cols, rows = 5, 1 end
+	ns.Mover:FitAnchor("party", cols * (L.width + L.spacing), rows * (L.height + L.spacing))
 end
 
 -- Which raid groups currently have members (only meaningful out of combat).

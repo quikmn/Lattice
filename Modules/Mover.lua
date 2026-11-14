@@ -14,7 +14,6 @@ function Mover:GetAnchor(key, label)
 	a:SetSize(120, 40)
 	a:SetMovable(true)
 	a:SetClampedToScreen(true)
-	a:RegisterForDrag("LeftButton")
 	a.key = key
 
 	local overlay = CreateFrame("Frame", nil, a)
@@ -30,12 +29,16 @@ function Mover:GetAnchor(key, label)
 	overlay:Hide()
 	a.overlay = overlay
 
-	a:SetScript("OnDragStart", function(self)
-		if unlocked and not InCombatLockdown() then self:StartMoving() end
+	-- The overlay takes the drag: it sits above the unit frames (DIALOG strata), so a box with frames in it
+	-- (party) can be grabbed anywhere, not just where no frame covers it.
+	overlay:EnableMouse(true)
+	overlay:RegisterForDrag("LeftButton")
+	overlay:SetScript("OnDragStart", function()
+		if unlocked and not InCombatLockdown() then a:StartMoving() end
 	end)
-	a:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		Mover:SavePosition(self)
+	overlay:SetScript("OnDragStop", function()
+		a:StopMovingOrSizing()
+		Mover:SavePosition(a)
 	end)
 	anchors[key] = a
 	self:RestorePosition(a)
@@ -78,7 +81,6 @@ function Mover:Toggle()
 	end
 	unlocked = not unlocked
 	for _, a in pairs(anchors) do
-		a:EnableMouse(unlocked)
 		a.overlay:SetShown(unlocked)
 	end
 	-- Show preview frames while unlocked so there's something to see when solo.
