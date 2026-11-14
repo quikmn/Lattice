@@ -15,6 +15,8 @@ local NAMES = { "Thrall", "Jaina", "Anduin", "Malfurion", "Valeera", "Uther", "R
 	"Varian", "Tyrande", "Velen", "Garrosh", "Sylvanas", "Cairne", "Muradin", "Kael", "Illidan", "Vol'jin", "Baine" }
 local ROLES = { "TANK", "HEALER", "DAMAGER", "DAMAGER", "DAMAGER" }
 local DISPELS = { nil, "Magic", nil, nil, "Poison", nil, "Curse", nil, nil, "Disease" }
+local FAKE_POWER = { WARRIOR = "RAGE", ROGUE = "ENERGY" }
+local FAKE_POWER_COLOR = { MANA = { r = 0, g = 0.55, b = 1 }, RAGE = { r = 0.78, g = 0.25, b = 0.25 }, ENERGY = { r = 1, g = 0.96, b = 0.41 } }
 
 local function FakeData(i)
 	return {
@@ -87,9 +89,15 @@ local function Render(btn)
 	v.healBar:SetShown(A.healPrediction and not d.dead)
 	v.absorbBar:SetShown(A.absorbs and not d.dead)
 
+	-- Same power bar rules as real frames (rogues hide energy, warriors show rage only when tanking, ...).
+	local token = FAKE_POWER[d.class] or "MANA"
+	local L = btn.latticeLayout or ns.db.layouts.party
+	local wants = L.showPower and A.powerHeight > 0 and ns.Buttons.PowerRuleAllows(A.powerRules, token, d.role)
+	ns.Buttons:SetPowerShown(btn, wants)
 	v.power:SetMinMaxValues(0, 100)
 	v.power:SetValue(d.power)
-	local pc = d.class == "WARRIOR" and { r = 0.78, g = 0.25, b = 0.25 } or (d.class == "ROGUE" and { r = 1, g = 0.96, b = 0.41 } or { r = 0, g = 0.55, b = 1 })
+	local pc = A.powerColorByType and ((PowerBarColor and PowerBarColor[token]) or FAKE_POWER_COLOR[token])
+		or { r = 0.30, g = 0.50, b = 0.85 }
 	v.power:SetStatusBarColor(pc.r, pc.g, pc.b)
 
 	v.name:SetText(d.name:sub(1, A.nameLength))

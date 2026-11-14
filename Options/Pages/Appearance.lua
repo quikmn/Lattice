@@ -30,6 +30,12 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 	W.Header(s, "Power bar")
 	W.Slider(s, Bind("appearance.powerHeight", "layout", { label = "Power bar height", min = 1, max = 12, step = 1 }))
 	W.Toggle(s, Bind("appearance.powerColorByType", "appearance", { label = "Color by power type (mana, rage, energy)" }))
+	W.Note(s, "Who gets a power bar. Druids switch as they shift form. Tanks include guessed tanks (General page). The Layout page can turn power bars off completely.")
+	local RULES = { { value = "always", text = "Everyone" }, { value = "tankheal", text = "Tanks and healers only" },
+		{ value = "tank", text = "Tanks only" }, { value = "never", text = "Nobody" } }
+	W.Dropdown(s, Bind("appearance.powerRules.MANA", "appearance", { label = "Mana (casters, hunters, druids in caster form)", items = RULES, width = 300 }))
+	W.Dropdown(s, Bind("appearance.powerRules.RAGE", "appearance", { label = "Rage (warriors, druids in Bear Form)", items = RULES, width = 300 }))
+	W.Dropdown(s, Bind("appearance.powerRules.ENERGY", "appearance", { label = "Energy (rogues, druids in Cat Form)", items = RULES, width = 300 }))
 
 	W.Header(s, "Border")
 	W.Slider(s, Bind("appearance.borderSize", "appearance", { label = "Border thickness", min = 0, max = 4, step = 1 }))

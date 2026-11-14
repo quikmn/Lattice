@@ -194,6 +194,61 @@ function B:SetUnit(btn, unit)
 end
 
 ------------------------------------------------------------------------
+-- Power bar visibility. Rules are per power type (which in Classic means per
+-- class, and per form for druids), optionally limited to tanks or healers.
+------------------------------------------------------------------------
+-- rule: always | tank | tankheal | never. role: "TANK" | "HEALER" | ...
+function B.PowerRuleAllows(rules, token, role)
+	local rule = rules and (rules[token] or rules.OTHER) or "always"
+	if rule == "never" then return false end
+	if rule == "tank" then return role == "TANK" end
+	if rule == "tankheal" then return role == "TANK" or role == "HEALER" end
+	return true
+end
+
+function B:WantsPower(btn)
+	local L = btn.latticeLayout or ns.db.layouts.party
+	local A = Appearance()
+	if not L.showPower or A.powerHeight <= 0 then return false end
+	local unit = btn.unit
+	if not unit or btn.fake or not UnitExists(unit) then return true end
+	local _, token = UnitPowerType(unit)
+	token = S.Plain(token, nil)
+	if not token then return true end
+	return B.PowerRuleAllows(A.powerRules, token, (ns.Roles:Role(unit)))
+end
+
+-- Health fills the frame; the power strip (when shown) takes the bottom edge.
+-- Visual frames aren't protected, so this is fine in combat.
+function B:SetPowerShown(btn, show)
+	show = show and true or false
+	if btn.powerShown == show then return false end
+	btn.powerShown = show
+	local v, A = btn.visual, Appearance()
+	local inner = A.borderSize
+	local ph = show and A.powerHeight or 0
+	v.health:ClearAllPoints()
+	v.health:SetPoint("TOPLEFT", inner, -inner)
+	v.health:SetPoint("BOTTOMRIGHT", -inner, inner + (show and ph + 1 or 0))
+	v.power:SetHeight(math.max(1, ph))
+	v.power:SetShown(show)
+	return true
+end
+
+function B:UpdatePowerVisibility(btn)
+	if not btn.unit then return end
+	if self:SetPowerShown(btn, self:WantsPower(btn)) and btn.powerShown then
+		self:UpdatePowerColor(btn)
+	end
+end
+
+-- Druid shapeshift (power type change): maybe show or hide the bar, then recolour.
+function B:UpdateDisplayPower(btn)
+	self:UpdatePowerVisibility(btn)
+	self:UpdatePowerColor(btn)
+end
+
+------------------------------------------------------------------------
 -- Layout (sizes, fonts, anchors) - safe to call any time (visuals aren't protected)
 ------------------------------------------------------------------------
 function B:ApplyLayout(btn)
@@ -209,19 +264,14 @@ function B:ApplyLayout(btn)
 	v.baseBorder:SetSize(bs)
 	v.baseBorder:SetShown(bs > 0)
 
-	local showPower = L.showPower and A.powerHeight > 0
-	local ph = showPower and A.powerHeight or 0
 	local inner = bs
-	v.health:ClearAllPoints()
-	v.health:SetPoint("TOPLEFT", inner, -inner)
-	v.health:SetPoint("BOTTOMRIGHT", -inner, inner + (showPower and ph + 1 or 0))
 	v.health:SetStatusBarTexture(tex)
 	v.power:ClearAllPoints()
 	v.power:SetPoint("BOTTOMLEFT", inner, inner)
 	v.power:SetPoint("BOTTOMRIGHT", -inner, inner)
-	v.power:SetHeight(math.max(1, ph))
 	v.power:SetStatusBarTexture(tex)
-	v.power:SetShown(showPower)
+	btn.powerShown = nil
+	self:SetPowerShown(btn, self:WantsPower(btn))
 
 	-- Prediction overlays start where the health fill ends.
 	local healthW = math.max(1, w - 2 * inner)
@@ -582,6 +632,7 @@ function B:UpdateAll(btn)
 	if not UnitExists(btn.unit) then return end
 	self:UpdateHealthColor(btn)
 	self:UpdateHealth(btn)
+	self:UpdatePowerVisibility(btn)
 	self:UpdatePowerColor(btn)
 	self:UpdateName(btn)
 	self:UpdateStatus(btn)
@@ -627,7 +678,7 @@ local unitEvents = {
 	UNIT_HEAL_ABSORB_AMOUNT_CHANGED = B.UpdatePrediction,
 	UNIT_POWER_UPDATE = B.UpdatePower,
 	UNIT_MAXPOWER = B.UpdatePower,
-	UNIT_DISPLAYPOWER = B.UpdatePowerColor,
+	UNIT_DISPLAYPOWER = B.UpdateDisplayPower,
 	UNIT_NAME_UPDATE = B.UpdateName,
 	UNIT_CONNECTION = B.UpdateAll,
 	UNIT_FLAGS = B.UpdateStatus,
@@ -654,7 +705,10 @@ function B:RegisterEvents()
 	ns:RegisterEvent("RAID_TARGET_UPDATE", function() ForAll(B.UpdateRaidIcon) end)
 	ns:RegisterEvent("PARTY_LEADER_CHANGED", function() ForAll(B.UpdateLeader) end)
 	ns:RegisterEvent("PLAYER_ROLES_ASSIGNED", function() ForAll(B.UpdateRole) end)
-	ns:Listen("RolesChanged", function() ForAll(B.UpdateRole) end)
+	ns:Listen("RolesChanged", function()
+		ForAll(B.UpdateRole)
+		ForAll(B.UpdatePowerVisibility)
+	end)
 	ns:RegisterEvent("GROUP_ROSTER_UPDATE", function()
 		ForAll(B.UpdateAll)
 		ns.Headers:OnRosterChanged()

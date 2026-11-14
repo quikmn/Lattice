@@ -56,6 +56,9 @@ ns.Defaults = {
 		borderSize = 1,
 		powerHeight = 3,
 		powerColorByType = true,
+		-- Who gets a power bar, by power type: always | tank | tankheal (tanks and healers) | never.
+		-- Druids switch live: mana in caster form, rage in Bear Form, energy in Cat Form.
+		powerRules = { MANA = "always", RAGE = "tank", ENERGY = "never", OTHER = "always" },
 
 		nameSize = 12,
 		nameOutline = true,

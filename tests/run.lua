@@ -306,6 +306,55 @@ step("tank guessing: in a party", function()
 	MOCK.auras = {}
 end)
 
+step("power bar: rules per power type and role", function()
+	local allows = ns.Buttons.PowerRuleAllows
+	local rules = ns.db.appearance.powerRules
+	check(allows(rules, "MANA", "NONE") and allows(rules, "MANA", "DAMAGER"), "mana should show")
+	check(not allows(rules, "ENERGY", "NONE") and not allows(rules, "ENERGY", "TANK"), "energy should hide")
+	check(allows(rules, "RAGE", "TANK") and not allows(rules, "RAGE", "NONE"), "rage only for tanks")
+	check(allows(rules, "FOCUS", "NONE"), "other power types show")
+	check(allows({ MANA = "tankheal" }, "MANA", "HEALER") and not allows({ MANA = "tankheal" }, "MANA", "DAMAGER"), "tankheal")
+
+	MOCK.SetGroup(5, false)
+	for _, u in ipairs({ "player", "party1", "party2", "party3", "party4" }) do MOCK.units[u].role = "NONE" end
+	MOCK.units.party1.ptype = "RAGE"   -- warrior
+	MOCK.units.party3.ptype = "ENERGY" -- druid in cat form
+	MOCK.units.party4.ptype = "ENERGY" -- rogue
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.UpdateAllHeaders()
+	MOCK.RunTimers()
+	local function shown(unit)
+		for _, b in ipairs(ns.Buttons.all) do
+			if b.unit == unit and b:IsVisible() then return b.visual.power:IsShown() end
+		end
+		error("no button for " .. unit)
+	end
+	check(shown("player") and shown("party2"), "mana users should have a power bar")
+	check(shown("party1"), "lone warrior is the tank: rage shown")
+	check(not shown("party4"), "rogue energy should be hidden")
+	check(not shown("party3"), "cat form energy should be hidden")
+	-- druid leaves cat form (mana), then goes bear in combat (rage, takes the tank spot)
+	MOCK.units.party3.ptype = "MANA"
+	MOCK.Fire("UNIT_DISPLAYPOWER", "party3")
+	check(shown("party3"), "caster form should show mana")
+	MOCK.combat = true
+	MOCK.units.party3.ptype = "RAGE"
+	MOCK.Fire("UNIT_DISPLAYPOWER", "party3")
+	MOCK.RunTimers()
+	check(shown("party3") and not shown("party1"), "bear should show rage, the warrior no longer tanks")
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.RunTimers()
+	-- the layout switch still turns everything off
+	ns.db.layouts.party.showPower = false
+	ns:ApplySettingsNow("layout")
+	MOCK.RunTimers()
+	check(not shown("player"), "layout switch should hide every power bar")
+	ns.db.layouts.party.showPower = true
+	ns:ApplySettingsNow("layout")
+	MOCK.RunTimers()
+end)
+
 step("class presets add only known spells", function()
 	local realClass = UnitClass
 	UnitClass = function(u) if u == "player" then return "Druid", "DRUID", 11 end return realClass(u) end
