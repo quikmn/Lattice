@@ -31,6 +31,7 @@ ns.Defaults = {
 		tooltips = true,
 		minimapIcon = true,
 		showPets = false,              -- pet frames (hunter, warlock, ...) in their own movable block
+		guessTank = true,              -- no roles assigned: guess the tank (Modules/Roles.lua)
 	},
 
 	layouts = {

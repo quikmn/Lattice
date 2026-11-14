@@ -450,7 +450,8 @@ end
 UnitHealthMissing = function(u) local d = U(u); return S(d and d.maxhp - d.hp or 0) end
 UnitPower = function(u) local d = U(u); return S(d and d.power or 0) end
 UnitPowerMax = function(u) local d = U(u); return S(d and d.maxpower or 1) end
-UnitPowerType = function() return 0, "MANA" end
+local POWER_IDS = { MANA = 0, RAGE = 1, ENERGY = 3 }
+UnitPowerType = function(u) local d = U(u); local t = d and d.ptype or "MANA"; return POWER_IDS[t] or 0, t end
 UnitGetIncomingHeals = function() return S(0) end
 UnitGetTotalAbsorbs = function() return S(0) end
 UnitGetTotalHealAbsorbs = function() return S(0) end
@@ -478,7 +479,7 @@ GetReadyCheckStatus = function() return nil end
 GetRaidRosterInfo = function(i) local d = U("raid" .. i); if d then return d.name, 0, math.floor((i - 1) / 5) + 1, 60, d.class, d.class, "", true, false, d.role end end
 SetRaidTargetIconTexture = function() end
 GetSpecialization = nil
-C_Secrets = { ShouldAurasBeSecret = function() return MOCK.secretsOn end, HasSecretRestrictions = function() return MOCK.secretsOn end }
+C_Secrets = { ShouldAurasBeSecret = function() return MOCK.combat end, HasSecretRestrictions = function() return MOCK.secretsOn end }
 C_PartyInfo = {}
 C_Spell = {
 	GetSpellInfo = function(id) return { name = "Spell" .. tostring(id), iconID = 136000 + (tonumber(id) or 0), spellID = id } end,
@@ -490,11 +491,34 @@ C_Spell = {
 C_SpellBook = { }
 C_UnitAuras = {
 	GetAuraDataByIndex = function() return nil end,
-	GetUnitAuras = function() return {} end,
+
 	GetAuraSlots = function() return nil end,
 	GetAuraDataByAuraInstanceID = function() return nil end,
 	IsAuraFilteredOutByInstanceID = function() return S(true) end,
+	-- MOCK.auras[unit] = { { spellId, name, icon, harmful }, ... }; unreadable in combat.
+	GetUnitAuraBySpellID = function(u, id)
+		if MOCK.combat then return nil end
+		for _, a in ipairs(MOCK.auras[u] or {}) do
+			if a.spellId == id then return a end
+		end
+	end,
+	GetAuraDataByIndex = function(u, i, filter)
+		if MOCK.combat then error("Auras cannot be accessed when secret while tainted") end
+		local n = 0
+		for _, a in ipairs(MOCK.auras[u] or {}) do
+			if (filter or ""):find("HARMFUL") and a.harmful or not (filter or ""):find("HARMFUL") and not a.harmful then
+				n = n + 1
+				if n == i then return { spellId = a.spellId, name = a.name, icon = a.icon or 136000, isHarmful = a.harmful } end
+			end
+		end
+	end,
 }
+MOCK.auras = {}
+MOCK.assignments = {} -- MOCK.assignments[unit] = "MAINTANK" | "MAINASSIST"
+GetPartyAssignment = function(kind, u) return MOCK.assignments[u] == kind end
+MOCK.form = 0
+GetShapeshiftForm = function() return MOCK.form end
+GetShapeshiftFormInfo = function(i) if i == 1 then return 132341, true, true, 71 end end
 C_CurveUtil = {
 	CreateCurve = function() return { AddPoint = function() end, SetType = function() end, Evaluate = function() return S(0) end } end,
 	CreateColorCurve = function()

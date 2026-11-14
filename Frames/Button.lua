@@ -515,7 +515,8 @@ end
 function B:UpdateRole(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	if not unit or not A.roleIcon then v.role:Hide() return end
-	local role = S.Plain(UnitGroupRolesAssigned(unit), "NONE")
+	-- Assigned role, or the guessed tank when the group has no roles (Modules/Roles.lua).
+	local role = ns.Roles:Role(unit)
 	local coords = ROLE_COORDS[role]
 	if not coords or (role == "DAMAGER" and A.hideDamagerIcon) then
 		v.role:Hide()
@@ -653,6 +654,7 @@ function B:RegisterEvents()
 	ns:RegisterEvent("RAID_TARGET_UPDATE", function() ForAll(B.UpdateRaidIcon) end)
 	ns:RegisterEvent("PARTY_LEADER_CHANGED", function() ForAll(B.UpdateLeader) end)
 	ns:RegisterEvent("PLAYER_ROLES_ASSIGNED", function() ForAll(B.UpdateRole) end)
+	ns:Listen("RolesChanged", function() ForAll(B.UpdateRole) end)
 	ns:RegisterEvent("GROUP_ROSTER_UPDATE", function()
 		ForAll(B.UpdateAll)
 		ns.Headers:OnRosterChanged()

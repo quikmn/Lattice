@@ -28,6 +28,15 @@ O:RegisterPage("general", "General", nil, function(s)
 		label = "Out of range opacity", min = 0.1, max = 0.9, step = 0.05,
 	}))
 
+	W.Header(s, "Tanks", "Most groups here have no roles set, so Lattice guesses the tank.")
+	W.Toggle(s, {
+		label = "Guess the tank when no roles are set",
+		desc = "Uses the raid's main tank mark, Defensive Stance, Bear Form and Righteous Fury. In a group of five it picks one player, or the only Warrior.",
+		get = function() return ns.db.general.guessTank end,
+		set = function(v) ns.db.general.guessTank = v; ns.Roles:Update() end,
+	})
+	W.Note(s, "Wrong guess? |cffffffff/lattice tank <name>|r, |cffffffff/lattice notank <name>|r and |cffffffff/lattice autotank <name>|r fix it for that player. |cffffffff/lattice tanks|r shows who counts as tank.")
+
 	W.Header(s, "Raid size", "Large raids can use a separate, more compact layout.")
 	W.Toggle(s, Bind("general.largeRaidLayout", "layout", { label = "Use the large raid layout in big raids" }))
 	W.Slider(s, Bind("general.largeRaidThreshold", "layout", {

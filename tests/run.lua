@@ -213,6 +213,99 @@ step("summon and dead states", function()
 	MOCK.summons.party1 = nil
 end)
 
+step("tank guessing: rules", function()
+	local D = ns.Roles.Decide
+	local function m(key, class, t) t = t or {}; t.key = key; t.class = class; t.assigned = t.assigned or "NONE"; return t end
+	local function only(out, key)
+		local n = 0
+		for _ in pairs(out) do n = n + 1 end
+		return n == 1 and out[key] ~= nil
+	end
+	-- five players, nothing to go on: the only warrior
+	check(only(D({ m("p", "PRIEST"), m("w", "WARRIOR"), m("m", "MAGE"), m("r", "ROGUE"), m("h", "HUNTER") }, 5), "w"), "lone warrior")
+	-- two warriors and no signal: no guess
+	check(next(D({ m("w1", "WARRIOR"), m("w2", "WARRIOR"), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5)) == nil, "two warriors should not guess")
+	-- a bear beats a warrior in battle stance
+	check(only(D({ m("w", "WARRIOR"), m("d", "DRUID", { stance = true }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5), "d"), "bear form")
+	-- equal signals: warrior before paladin; two warriors in defensive stance: no guess
+	check(only(D({ m("pa", "PALADIN", { stance = true }), m("w", "WARRIOR", { stance = true }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5), "w"), "class tie-break")
+	check(next(D({ m("w1", "WARRIOR", { stance = true }), m("w2", "WARRIOR", { stance = true }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5)) == nil, "real tie")
+	-- main tank flag beats a stance
+	check(only(D({ m("w", "WARRIOR", { stance = true }), m("x", "PRIEST", { mainTank = true }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5), "x"), "main tank")
+	-- an assigned tank or a user choice stops guessing in five-player groups
+	check(only(D({ m("w", "WARRIOR"), m("t", "PALADIN", { assigned = "TANK" }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5), "t"), "assigned tank")
+	check(only(D({ m("w", "WARRIOR"), m("x", "MAGE", { override = "tank" }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE") }, 5), "x"), "override tank")
+	check(next(D({ m("w", "WARRIOR", { override = "notank" }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE"), m("h", "HUNTER") }, 5)) == nil, "override notank")
+	-- assigned dps is trusted even in defensive stance
+	check(next(D({ m("w", "WARRIOR", { stance = true, assigned = "DAMAGER" }), m("p", "PRIEST"), m("m", "MAGE"), m("r", "ROGUE"), m("h", "HUNTER") }, 5)) == nil, "assigned dps")
+	-- raids: every stance/form/main tank counts, main assist alone doesn't, class alone doesn't
+	local raid = D({ m("w1", "WARRIOR", { stance = true }), m("d", "DRUID", { stance = true }), m("mt", "PRIEST", { mainTank = true }),
+		m("ma", "WARRIOR", { mainAssist = true }), m("w2", "WARRIOR") }, 20)
+	check(raid.w1 and raid.d and raid.mt and not raid.ma and not raid.w2, "raid rules")
+end)
+
+step("tank guessing: in a party", function()
+	MOCK.SetGroup(5, false)
+	for _, u in ipairs({ "player", "party1", "party2", "party3", "party4" }) do MOCK.units[u].role = "NONE" end
+	-- classes: player PRIEST, party1 WARRIOR, party2 MAGE, party3 DRUID, party4 ROGUE
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.UpdateAllHeaders()
+	MOCK.RunTimers()
+	local R = ns.Roles
+	check(R:IsTank("party1"), "lone warrior should be the tank")
+	local function roleShown(unit)
+		for _, b in ipairs(ns.Buttons.all) do
+			if b.unit == unit and b:IsVisible() then return b.visual.role:IsShown() end
+		end
+	end
+	check(roleShown("party1"), "guessed tank should get a role icon")
+	-- druid shifts to bear: rage bar, works in combat too
+	MOCK.combat = true
+	MOCK.units.party3.ptype = "RAGE"
+	MOCK.Fire("UNIT_DISPLAYPOWER", "party3")
+	MOCK.RunTimers()
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.RunTimers()
+	check(R:IsTank("party3") and not R:IsTank("party1"), "bear should take over")
+	-- the user says the druid is not a tank
+	SlashCmdList.LATTICE("notank party3")
+	MOCK.RunTimers()
+	check(not R:IsTank("party3") and R:IsTank("party1"), "notank override ignored")
+	SlashCmdList.LATTICE("autotank party3")
+	MOCK.units.party3.ptype = "MANA"
+	MOCK.Fire("UNIT_DISPLAYPOWER", "party3")
+	MOCK.RunTimers()
+	-- defensive stance seen on the warrior's auras (read out of combat only)
+	MOCK.units.party4.class = "WARRIOR"
+	MOCK.auras.party1 = { { spellId = 71, name = "Defensive Stance" } }
+	MOCK.Fire("UNIT_AURA", "party1")
+	MOCK.RunTimers()
+	check(R:IsTank("party1") and not R:IsTank("party4"), "defensive stance should pick party1")
+	MOCK.combat = true
+	MOCK.auras.party1 = nil
+	MOCK.Fire("UNIT_AURA", "party1") -- unreadable in combat: keep the last answer
+	MOCK.RunTimers()
+	check(R:IsTank("party1"), "combat should keep the last answer")
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.RunTimers()
+	check(not R:IsTank("party1"), "stance gone after combat: two warriors, no guess")
+	SlashCmdList.LATTICE("tanks")
+	-- raid main tank flag
+	MOCK.SetGroup(20, true)
+	MOCK.assignments.raid7 = "MAINTANK"
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.RunTimers()
+	check(not R:IsTank("raid7"), "assigned damage role should win over the main tank flag")
+	MOCK.units.raid7.role = "NONE"
+	MOCK.Fire("PLAYER_ROLES_ASSIGNED")
+	MOCK.RunTimers()
+	check(R:IsTank("raid7"), "main tank flag")
+	MOCK.assignments = {}
+	MOCK.auras = {}
+end)
+
 step("class presets add only known spells", function()
 	local realClass = UnitClass
 	UnitClass = function(u) if u == "player" then return "Druid", "DRUID", 11 end return realClass(u) end

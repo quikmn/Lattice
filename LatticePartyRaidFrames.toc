@@ -23,6 +23,7 @@ Frames\Auras.lua
 Frames\Header.lua
 Frames\TestMode.lua
 
+Modules\Roles.lua
 Modules\ClickCast.lua
 Modules\HoverCast.lua
 Modules\Mover.lua

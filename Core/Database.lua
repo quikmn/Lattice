@@ -5,6 +5,7 @@
 --   profiles = { [name] = <profile, stored without default values> },
 --   chars    = { ["Name-Realm"] = { profile = "Default", specProfiles = { [specIndex] = name },
 --                                    bindings = { <click-cast bindings> } } },
+--   tankOverrides = { [playerGUID] = { role = "tank" | "notank", name = "Name" } },
 -- }
 --
 -- At runtime ns.db is the active profile with defaults filled in;
@@ -15,7 +16,7 @@ local U = ns.Util
 local DB = {}
 ns.Database = DB
 
-local SCHEMA = 2
+local SCHEMA = 3
 DB.DEFAULT_PROFILE = "Default"
 DB.SCHEMA = SCHEMA
 
@@ -28,6 +29,10 @@ local MIGRATIONS = {
 		for _, char in pairs(sv.chars or {}) do
 			char.hover = char.hover or {}
 		end
+	end,
+	[3] = function(sv)
+		-- 0.4.0: per-player tank choices (account-wide).
+		sv.tankOverrides = sv.tankOverrides or {}
 	end,
 }
 DB.MIGRATIONS = MIGRATIONS
@@ -60,6 +65,7 @@ function DB:Initialize()
 	local fresh = sv.schema == nil and sv.profiles == nil
 	sv.profiles = sv.profiles or {}
 	sv.chars = sv.chars or {}
+	sv.tankOverrides = sv.tankOverrides or {}
 	if fresh then sv.schema = SCHEMA end
 	sv.schema = sv.schema or 1
 	self:Migrate(sv)

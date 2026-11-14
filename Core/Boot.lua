@@ -80,6 +80,7 @@ ns:RegisterEvent("PLAYER_LOGIN", function()
 		return
 	end
 	ns.Buttons:RegisterEvents()
+	ns.Roles:Enable()
 	ns.Headers:Create()
 	ns.Headers:HideBlizzard()
 	ns.Profiles:ApplySpecProfile()
@@ -102,6 +103,10 @@ local function Help()
 	ns:Print("  /lattice preview [5|10|20|25|40]   show fake frames")
 	ns:Print("  /lattice probe      report which unit data is secret right now")
 	ns:Print("  /lattice status     show why frames are or aren't visible")
+	ns:Print("  /lattice tank [name]      mark a player as tank (no name = your target)")
+	ns:Print("  /lattice notank [name]    never treat a player as tank")
+	ns:Print("  /lattice autotank [name]  guess again for that player")
+	ns:Print("  /lattice tanks      list who counts as tank and why")
 	ns:Print("  /lattice debug      toggle debug messages")
 end
 
@@ -126,12 +131,41 @@ SlashCmdList.LATTICE = function(msg)
 		ns.Probe()
 	elseif cmd == "status" then
 		ns.Status()
+	elseif cmd == "tank" or cmd == "notank" or cmd == "autotank" then
+		ns.TankCommand(cmd, arg)
+	elseif cmd == "tanks" then
+		ns.ListTanks()
 	elseif cmd == "debug" then
 		ns.db.debug = not ns.db.debug
 		ns:Print("debug " .. (ns.db.debug and "on" or "off"))
 	else
 		Help()
 	end
+end
+
+-- /lattice tank, notank or autotank [name]. Names match without case; no name = target.
+function ns.TankCommand(cmd, arg)
+	local unit = ns.Roles:FindUnit(arg)
+	if not unit then
+		ns:Print(arg ~= "" and ("No group member called " .. arg .. ".") or "Target a group member or give a name.")
+		return
+	end
+	local value = (cmd == "tank" and "tank") or (cmd == "notank" and "notank") or nil
+	ns.Roles:SetOverride(unit, value)
+	local name = ns.Secret.Plain(UnitName(unit), unit)
+	ns:Print(name .. ": " .. (value == "tank" and "always tank" or value == "notank" and "never tank" or "guessed again"))
+end
+
+function ns.ListTanks()
+	local any = false
+	for _, unit in ipairs(ns.Roles:Roster()) do
+		if UnitExists(unit) and ns.Roles:IsTank(unit) then
+			any = true
+			local why = ns.Roles:Override(ns.Roles.Key(unit)) and "set by you" or ns.Roles:Reason(unit) or "assigned role"
+			ns:Print("  " .. tostring(ns.Secret.Plain(UnitName(unit), unit)) .. " (" .. why .. ")")
+		end
+	end
+	if not any then ns:Print("No tank found. /lattice tank <name> sets one.") end
 end
 
 -- Why aren't frames showing? Dumps header and button state.
