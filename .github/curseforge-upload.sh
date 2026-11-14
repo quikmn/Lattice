@@ -39,6 +39,14 @@ fi
 name="$(basename "$zip" .zip)"
 meta="$(jq -n --arg c "$changelog" --arg n "$name" --argjson g "[$id]" \
   '{changelog: $c, changelogType: "markdown", displayName: $n, gameVersions: $g, releaseType: "release"}')"
-curl -fsS -H "X-Api-Token: $CF_API_KEY" -F "metadata=$meta" -F "file=@$zip" "$api/projects/$project/upload-file"
-echo
+out="$(curl -sS -w '
+%{http_code}' -H "X-Api-Token: $CF_API_KEY" --form-string "metadata=$meta" -F "file=@$zip" "$api/projects/$project/upload-file")"
+code="${out##*$'
+'}"
+echo "${out%$'
+'*}"
+if [ "$code" != "200" ]; then
+  echo "::error::CurseForge upload failed (HTTP $code)."
+  exit 1
+fi
 echo "Uploaded $name to CurseForge project $project"
