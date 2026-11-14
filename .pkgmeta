@@ -1,4 +1,4 @@
-package-as: Lattice
+package-as: LatticePartyRaidFrames
 
 ignore:
   - README.md

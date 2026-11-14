@@ -1,4 +1,4 @@
--- Lattice: core namespace, event dispatch, callbacks and combat-safe queue.
+-- Lattice (folder LatticePartyRaidFrames): core namespace, event dispatch, callbacks and combat-safe queue.
 local ADDON, ns = ...
 
 ns.name = ADDON

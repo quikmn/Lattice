@@ -1,4 +1,4 @@
-# Lattice
+# Lattice: Party & Raid Frames
 
 Party and raid frames for WoW Forever (interface 16001): Grid-style indicators, an easy options window, click-casting, aura and dispel highlights, and profiles.
 
@@ -32,7 +32,7 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 `python -P tests/run.py` loads the addon in Lua 5.1 against a fake WoW API whose secret values throw on misuse. It needs `pip install lupa`.
 
 ## Install
-WowUp: pick **World of Warcraft: Forever**, then Get Addons → Install from URL, and paste `https://github.com/quikmn/Lattice`.
+WowUp: pick **World of Warcraft: Forever**, then Get Addons → Install from URL, and paste `https://github.com/quikmn/LatticePartyRaidFrames`.
 
 By hand: download the latest zip from Releases and unzip it into `World of Warcraft\_forever_\Interface\AddOns`.
 

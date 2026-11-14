@@ -54,13 +54,31 @@ ns:Listen("ProfileChanged", function()
 	if ns.Options and ns.Options.RebuildAll then ns.Options:RebuildAll() end
 end)
 
+-- The folder used to be called "Lattice"; another CurseForge addon has that name, so it is now LatticePartyRaidFrames.
+-- If the old folder is still installed it loads first (same code): stay idle this session so there is only one set
+-- of frames, turn the old copy off for next time, and say so. LatticeDB is shared, so its settings are kept.
+local OLD = "Lattice"
+local function oldCopyLoaded()
+	if ADDON == OLD or not C_AddOns or not C_AddOns.IsAddOnLoaded then return false end
+	return C_AddOns.IsAddOnLoaded(OLD)
+end
+
 ns:RegisterEvent("ADDON_LOADED", function(_, name)
 	if name ~= ADDON then return end
+	if oldCopyLoaded() then
+		ns.oldCopy = true
+		pcall(C_AddOns.DisableAddOn, OLD)
+		return
+	end
 	ns.Database:Initialize()
 	ns.ClickCast:Sort()
 end)
 
 ns:RegisterEvent("PLAYER_LOGIN", function()
+	if ns.oldCopy then
+		ns:Print("An old copy in the AddOns folder \"Lattice\" was found and turned off. Type /reload, then delete that folder. Your settings are kept.")
+		return
+	end
 	ns.Buttons:RegisterEvents()
 	ns.Headers:Create()
 	ns.Headers:HideBlizzard()
@@ -90,6 +108,7 @@ end
 SLASH_LATTICE1 = "/lattice"
 SLASH_LATTICE2 = "/lat"
 SlashCmdList.LATTICE = function(msg)
+	if ns.oldCopy then ns:Print("Type /reload first: the old \"Lattice\" folder was just turned off.") return end
 	local cmd, arg = (msg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
 	if cmd == "" or cmd == "config" or cmd == "options" then
 		ns.Options:Toggle()

@@ -14,7 +14,7 @@ B.byUnit = {}    -- unit token -> { [btn] = true }
 local issecret = S.IsSecret
 
 local TEXTURES = {
-	lattice  = "Interface\\AddOns\\Lattice\\Media\\Bar",
+	lattice  = "Interface\\AddOns\\LatticePartyRaidFrames\\Media\\Bar",
 	flat     = "Interface\\Buttons\\WHITE8X8",
 	smooth   = "Interface\\TargetingFrame\\UI-StatusBar",
 	raid     = "Interface\\RaidFrame\\Raid-Bar-Hp-Fill",

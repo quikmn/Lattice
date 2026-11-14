@@ -20,7 +20,7 @@ local function check(cond, msg) if not cond then error(msg, 2) end end
 
 -- Load files listed in the TOC
 step("load TOC files", function()
-	local toc = assert(io.open(ROOT .. "/Lattice.toc")):read("*a")
+	local toc = assert(io.open(ROOT .. "/LatticePartyRaidFrames.toc")):read("*a")
 	for line in toc:gmatch("[^\r\n]+") do
 		if not line:match("^%s*#") and line:match("%.lua%s*$") then
 			local path = ROOT .. "/" .. line:gsub("\\", "/"):gsub("%s+$", "")
