@@ -21,7 +21,7 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Profiles per spec, import and export.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
-## Unreleased
+## 0.4.0 (2026-11-14)
 - **Tank guessing.** With no roles set, Lattice picks the tank from the raid's main tank mark, Defensive Stance, Bear Form and Righteous Fury. In a group of five it picks one player, or the only Warrior. The guessed tank gets the tank icon. Fix a wrong guess with Ctrl+Alt+Right-click or `/lattice tank`, `notank`, `autotank`. Can be turned off on the General page.
 - **Power bars by type and role.** Energy is hidden (rogues, druids in Cat Form), rage shows only for tanks (warriors, druids in Bear Form), mana shows for everyone. Druids switch as they shift. Change it per power type on the Appearance page.
 - **Aura filters.** A new Aura filters page: always show or never show buffs and debuffs by name or spell ID, with Classic defaults (Power Infusion, Innervate, Blessing of Protection and Soulstone always shown; Clearcasting, Flurry, Enrage and other short procs hidden). Import and export as plain text. Ctrl+Alt+Right-click a frame to pick from that player's auras. The game only lets addons pick out a few debuffs on friendly players by ID, so for most debuffs these filters have no effect; buffs always work.
