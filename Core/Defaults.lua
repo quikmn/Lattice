@@ -73,6 +73,7 @@ ns.Defaults = {
 		targetHighlightColor = { 1, 1, 1, 0.9 },
 		mouseoverHighlight = true,
 		aggroBorder = true,
+		aggroSkipTanks = false,        -- no aggro border on (guessed) tanks: they're meant to have it
 
 		healPrediction = true,
 		absorbs = true,

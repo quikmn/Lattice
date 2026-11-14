@@ -182,6 +182,14 @@ function B:Setup(btn)
 	self:SetUnit(btn, btn:GetAttribute("unit"))
 end
 
+-- Smoothing is for one player's health changing, not for a button that just
+-- switched to another player (roster reshuffles): jump straight to the value.
+local function SnapBars(v)
+	for _, bar in ipairs({ v.health, v.power, v.healBar, v.absorbBar, v.healAbsorbBar }) do
+		if bar.SetToTargetValue then bar:SetToTargetValue() end
+	end
+end
+
 function B:SetUnit(btn, unit)
 	local old = btn.unit
 	if old and B.byUnit[old] then B.byUnit[old][btn] = nil end
@@ -191,6 +199,7 @@ function B:SetUnit(btn, unit)
 		B.byUnit[unit][btn] = true
 		btn.calc = btn.calc or S.NewCalculator()
 		self:UpdateAll(btn)
+		if old ~= unit then SnapBars(btn.visual) end
 	end
 end
 
@@ -347,6 +356,12 @@ local function IsGone(unit)
 	return not UnitIsConnected(unit) or UnitIsDeadOrGhost(unit)
 end
 
+-- 0 = alive and online; bits for offline, dead, ghost.
+local function GoneState(unit)
+	return (UnitIsConnected(unit) and 0 or 1) + (UnitIsDeadOrGhost(unit) and 2 or 0)
+		+ (UnitIsGhost and UnitIsGhost(unit) and 4 or 0)
+end
+
 function B:UpdateHealthColor(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	if not unit then return end
@@ -410,9 +425,9 @@ function B:UpdatePrediction(btn)
 	v.healBar:SetMinMaxValues(0, maxHP)
 	v.absorbBar:SetMinMaxValues(0, maxHP)
 	v.healAbsorbBar:SetMinMaxValues(0, maxHP)
-	v.healBar:SetValue(heals or 0)
-	v.absorbBar:SetValue(absorbs or 0)
-	v.healAbsorbBar:SetValue(healAbsorbs or 0)
+	S.SetBar(v.healBar, heals or 0, true)
+	S.SetBar(v.absorbBar, absorbs or 0, true)
+	S.SetBar(v.healAbsorbBar, healAbsorbs or 0, true)
 	v.healBar:SetShown(A.healPrediction)
 	v.absorbBar:SetShown(A.absorbs)
 	v.healAbsorbBar:SetShown(A.absorbs)
@@ -608,13 +623,15 @@ end
 
 function B:UpdateAggro(btn)
 	local unit, v = btn.unit, btn.visual
-	if not unit or not Appearance().aggroBorder then v.aggro:Hide() return end
+	local A = Appearance()
+	if not unit or not A.aggroBorder or (A.aggroSkipTanks and ns.Roles:IsTank(unit)) then v.aggro:Hide() return end
 	local status = UnitThreatSituation(unit)
 	if issecret(status) or not status or status < 2 then
 		v.aggro:Hide()
 		return
 	end
-	v.aggro.border:SetColor(status == 3 and 1 or 1, status == 3 and 0.15 or 0.6, 0.1, 1)
+	-- 3 = tanking (red), 2 = has aggro but someone else is higher on threat (orange)
+	v.aggro.border:SetColor(1, status == 3 and 0.15 or 0.6, 0.1, 1)
 	v.aggro:Show()
 end
 
@@ -628,9 +645,21 @@ function B:UpdateReady(btn)
 	v.ready:Show()
 end
 
+-- Health events: refresh the dead/offline look only when that state changes.
+function B:UpdateGone(btn)
+	local state = GoneState(btn.unit)
+	if state == btn.goneState then return end
+	btn.goneState = state
+	self:UpdateStatus(btn)
+	self:UpdateHealthColor(btn)
+	self:UpdateName(btn)
+	self:UpdatePrediction(btn)
+end
+
 function B:UpdateAll(btn)
 	if not btn.unit or not btn.visual then return end
 	if not UnitExists(btn.unit) then return end
+	btn.goneState = GoneState(btn.unit)
 	self:UpdateHealthColor(btn)
 	self:UpdateHealth(btn)
 	self:UpdatePowerVisibility(btn)
@@ -695,8 +724,9 @@ function B:RegisterEvents()
 	for event, fn in pairs(unitEvents) do
 		ns:RegisterEvent(event, function(_, unit)
 			ForUnit(unit, fn)
-			if event == "UNIT_HEALTH" or event == "UNIT_CONNECTION" or event == "UNIT_FLAGS" then
-				ForUnit(unit, B.UpdateStatus)
+			if event == "UNIT_HEALTH" then
+				ForUnit(unit, B.UpdateGone)
+			elseif event == "UNIT_FLAGS" then
 				ForUnit(unit, B.UpdateHealthColor)
 				ForUnit(unit, B.UpdateName)
 			end
@@ -709,6 +739,7 @@ function B:RegisterEvents()
 	ns:Listen("RolesChanged", function()
 		ForAll(B.UpdateRole)
 		ForAll(B.UpdatePowerVisibility)
+		ForAll(B.UpdateAggro)
 	end)
 	ns:RegisterEvent("GROUP_ROSTER_UPDATE", function()
 		ForAll(B.UpdateAll)
@@ -717,7 +748,9 @@ function B:RegisterEvents()
 	ns:RegisterEvent("PLAYER_ENTERING_WORLD", function() ForAll(B.UpdateAll) end)
 
 	-- Ready check (payloads are readable)
+	local readyGen = 0
 	ns:RegisterEvent("READY_CHECK", function()
+		readyGen = readyGen + 1
 		wipe(B.readyState)
 		for unit in pairs(B.byUnit) do B.readyState[unit] = "waiting" end
 		ForAll(B.UpdateReady)
@@ -736,7 +769,9 @@ function B:RegisterEvents()
 			if state == "waiting" then B.readyState[unit] = "notready" end
 		end
 		ForAll(B.UpdateReady)
+		local gen = readyGen
 		C_Timer.After(6, function()
+			if gen ~= readyGen then return end
 			wipe(B.readyState)
 			ForAll(B.UpdateReady)
 		end)

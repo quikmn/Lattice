@@ -233,6 +233,11 @@ function W.Slider(stack, opt)
 		box:SetText(string.format(fmt, v))
 		updateFill(v)
 		updating = false
+		local enabled = not opt.disabled or not opt.disabled()
+		f:SetAlpha(enabled and 1 or 0.4)
+		slider:EnableMouse(enabled)
+		slider:EnableMouseWheel(enabled)
+		box:EnableMouse(enabled)
 	end
 
 	slider:SetScript("OnValueChanged", function(_, v)
@@ -381,6 +386,9 @@ function W.Dropdown(stack, opt)
 			if it.value == cur then shown = it.text break end
 		end
 		value:SetText(shown)
+		local enabled = not opt.disabled or not opt.disabled()
+		f:SetAlpha(enabled and 1 or 0.4)
+		b:EnableMouse(enabled)
 	end
 	b:SetScript("OnClick", function()
 		OpenPopup(b, items(), opt.get(), function(v)

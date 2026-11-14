@@ -18,7 +18,6 @@ end
 O:RegisterPage("layout", "Layout", nil, function(s)
 	W.Header(s, "Layout", "Size and arrangement. Party, raid and large raid each have their own layout and switch automatically.")
 
-	local dependents = {}
 	W.Dropdown(s, {
 		label = "Editing layout",
 		items = { { value = "party", text = "Party" }, { value = "raid", text = "Raid" }, { value = "raid40", text = "Large raid" } },
@@ -51,19 +50,20 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		items = { { value = "INDEX", text = "Group order" }, { value = "NAME", text = "Name" } },
 	}))
 
-	local function isParty() return editing == "party" end
-	local function isRaid() return editing ~= "party" end
+	local function notParty() return editing ~= "party" end
+	local function notRaid() return editing == "party" end
+	local function notGroups() return notRaid() or ns.db.layouts[editing].mode ~= "groups" end
+	local function notGrid() return notRaid() or ns.db.layouts[editing].mode ~= "combined" end
 
 	-- Party only
-	local t1 = W.Toggle(s, L("showPlayer", { label = "Show myself in party", disabled = function() return not isParty() end }))
-	local t2 = W.Toggle(s, L("showSolo", { label = "Show frames when solo", disabled = function() return not isParty() end }))
-	local g = W.Dropdown(s, L("groupBy", {
+	W.Toggle(s, L("showPlayer", { label = "Show myself in party", disabled = notParty }))
+	W.Toggle(s, L("showSolo", { label = "Show frames when solo", disabled = notParty }))
+	W.Dropdown(s, L("groupBy", {
 		label = "Party grouping",
+		desc = "Tank, healer, damage uses assigned roles; guessed tanks keep their place but get the tank icon.",
 		items = { { value = "NONE", text = "None" }, { value = "ROLE", text = "Tank, healer, damage" }, { value = "CLASS", text = "Class" } },
-		disabled = function() return not isParty() end,
+		disabled = notParty,
 	}))
-	dependents[#dependents + 1] = t1
-	dependents[#dependents + 1] = t2
 
 	W.Header(s, "Raid arrangement")
 	W.Note(s, "Only used by the Raid and Large raid layouts.")
@@ -71,16 +71,19 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		label = "Raid style",
 		items = { { value = "groups", text = "One column per raid group" }, { value = "combined", text = "All players in one grid" } },
 		width = 300,
+		disabled = notRaid,
+		after = function() s:RefreshAll() end,
 	}))
-	W.Slider(s, L("groupSpacing", { label = "Gap between groups", min = 0, max = 40, step = 1 }))
-	W.Slider(s, L("groupsPerLine", { label = "Groups before wrapping", min = 1, max = 8, step = 1 }))
-	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups" }))
-	W.Slider(s, L("unitsPerColumn", { label = "Players per column (grid style)", min = 1, max = 40, step = 1 }))
+	W.Slider(s, L("groupSpacing", { label = "Gap between groups", min = 0, max = 40, step = 1, disabled = notRaid }))
+	W.Slider(s, L("groupsPerLine", { label = "Groups before wrapping", min = 1, max = 8, step = 1, disabled = notGroups }))
+	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups", disabled = notGroups }))
+	W.Slider(s, L("unitsPerColumn", { label = "Players per column (grid style)", min = 1, max = 40, step = 1, disabled = notGrid }))
 	W.Dropdown(s, {
 		label = "Grid grouping",
 		items = { { value = "NONE", text = "None" }, { value = "GROUP", text = "Raid group" }, { value = "ROLE", text = "Tank, healer, damage" }, { value = "CLASS", text = "Class" } },
 		get = function() return ns.db.layouts[editing].groupBy end,
 		set = function(v) ns.db.layouts[editing].groupBy = v; ns:ApplySettings("layout") end,
+		disabled = notGrid,
 	})
 
 	W.Header(s, "Pets")

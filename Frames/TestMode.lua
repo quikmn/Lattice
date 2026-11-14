@@ -51,6 +51,8 @@ local function MakeFake(i)
 	v.fakeHot:SetTexture("Interface\\Icons\\Spell_Nature_Rejuvenation")
 	v.fakeHot:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	v.fakeDispel = U.Border(v.over, 2, 1, 1, 1, 1, "OVERLAY")
+	v.fakeDispelTint = U.Solid(v.over, "ARTWORK", 1, 1, 1, 0.3)
+	v.fakeDispelTint:SetAllPoints(v.health)
 	btn.data = FakeData(i)
 	fakes[i] = btn
 	return btn
@@ -131,7 +133,7 @@ local function Render(btn)
 	v.leader:SetShown(A.leaderIcon and d.leader)
 	v.raidIcon:SetShown(false)
 	v.target:SetShown(false)
-	v.aggro:SetShown(A.aggroBorder and d.role == "TANK")
+	v.aggro:SetShown(A.aggroBorder and d.role == "TANK" and not A.aggroSkipTanks)
 
 	-- Fake auras following the aura settings
 	local D = ns.db.auras
@@ -146,11 +148,14 @@ local function Render(btn)
 	v.fakeHot:SetPoint(hot.point, v.health, hot.point, hot.x, hot.y)
 	v.fakeHot:SetShown(D.enabled and hot.enabled and d.hot and not d.dead)
 	local showDispel = D.enabled and D.dispel.enabled and d.dispel and not d.dead
-	v.fakeDispel:SetShown(showDispel and true or false)
+	local style = D.dispel.style
+	v.fakeDispel:SetShown(showDispel and style ~= "overlay" and true or false)
+	v.fakeDispelTint:SetShown(showDispel and (style == "overlay" or style == "both") and true or false)
 	if showDispel then
 		local col = D.dispel.colors[d.dispel] or { 1, 1, 1, 1 }
 		v.fakeDispel:SetColor(col[1], col[2], col[3], 1)
 		v.fakeDispel:SetSize(D.dispel.thickness)
+		v.fakeDispelTint:SetVertexColor(col[1], col[2], col[3], style == "both" and 0.22 or 0.35)
 	end
 end
 

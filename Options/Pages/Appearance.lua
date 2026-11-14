@@ -44,6 +44,11 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 	W.Color(s, Bind("appearance.targetHighlightColor", "appearance", { label = "Target highlight color", hasAlpha = true }))
 	W.Toggle(s, Bind("appearance.mouseoverHighlight", "appearance", { label = "Highlight on mouseover" }))
 	W.Toggle(s, Bind("appearance.aggroBorder", "appearance", { label = "Red border when a player has aggro" }))
+	W.Toggle(s, Bind("appearance.aggroSkipTanks", "appearance", {
+		label = "No aggro border on tanks",
+		desc = "Tanks are meant to have aggro. Includes guessed tanks.",
+		disabled = function() return not ns.db.appearance.aggroBorder end,
+	}))
 
 	W.Header(s, "Name")
 	W.Slider(s, Bind("appearance.nameSize", "appearance", { label = "Font size", min = 7, max = 20, step = 1 }))

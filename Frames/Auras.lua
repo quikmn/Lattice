@@ -194,17 +194,20 @@ local function DispelInit(btnVisual)
 			pcall(b.AddDispelTypeTexture, b, t, opts)
 			return t
 		end
-		if D.style == "overlay" then
+		if D.style == "overlay" or D.style == "both" then
 			local t = tex("ARTWORK")
 			t:SetAllPoints()
-			t:SetAlpha(0.35)
+			t:SetAlpha(D.style == "both" and 0.22 or 0.35)
+		end
+		if D.style == "overlay" then
+			return
 		elseif D.style == "icon" then
 			b:ClearAllPoints()
 			b:SetSize(14, 14)
 			b:SetPoint("TOPRIGHT", btnVisual, "TOPRIGHT", -2, -2)
 			local t = tex("ARTWORK")
 			t:SetAllPoints()
-		else -- border
+		else -- border (and "both")
 			local th = D.thickness
 			local top = tex(); top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT"); top:SetHeight(th)
 			local bot = tex(); bot:SetPoint("BOTTOMLEFT"); bot:SetPoint("BOTTOMRIGHT"); bot:SetHeight(th)

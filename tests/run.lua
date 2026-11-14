@@ -136,7 +136,7 @@ step("aura containers + indicator by spell name", function()
 	MOCK.RunTimers()
 	local b = ns.Buttons.all[1]
 	check(b.auraContainers and #b.auraContainers >= 3, "expected aura containers on buttons")
-	for _, style in ipairs({ "border", "overlay", "icon" }) do
+	for _, style in ipairs({ "border", "both", "overlay", "icon" }) do
 		ns.db.auras.dispel.style = style
 		ns.Auras:Refresh()
 	end
@@ -210,6 +210,22 @@ step("summon and dead states", function()
 		if b.unit == "party1" and b.visual.summon:IsShown() then shown = true end
 	end
 	check(shown, "summon icon not shown")
+	for _, b in ipairs(ns.Buttons.all) do
+		if b.unit == "party2" then check(b.visual.status:IsShown() and b.visual.status:GetText() == "Dead", "dead text not shown") end
+	end
+	MOCK.units.party2.dead = false
+	MOCK.Fire("UNIT_HEALTH", "party2")
+	for _, b in ipairs(ns.Buttons.all) do
+		if b.unit == "party2" then check(not b.visual.status:IsShown(), "dead text should clear on resurrect") end
+	end
+	-- a new ready check must survive the previous one's clean-up timer
+	MOCK.Fire("READY_CHECK", "Leader", 30)
+	MOCK.Fire("READY_CHECK_FINISHED", false)
+	MOCK.Fire("READY_CHECK", "Leader", 30)
+	MOCK.RunTimers()
+	check(ns.Buttons.readyState.party1 == "waiting", "old ready check timer wiped the new check")
+	MOCK.Fire("READY_CHECK_FINISHED", false)
+	MOCK.RunTimers()
 	MOCK.summons.party1 = nil
 end)
 

@@ -51,7 +51,8 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Toggle(s, Bind("auras.dispel.onlyMine", "auras", { label = "Only debuffs I can dispel myself" }))
 	W.Dropdown(s, Bind("auras.dispel.style", "auras", {
 		label = "Style",
-		items = { { value = "border", text = "Colored border" }, { value = "overlay", text = "Tint the whole frame" }, { value = "icon", text = "Small icon" } },
+		items = { { value = "border", text = "Colored border" }, { value = "both", text = "Border and a light tint" },
+			{ value = "overlay", text = "Tint the whole frame" }, { value = "icon", text = "Small icon" } },
 	}))
 	W.Slider(s, Bind("auras.dispel.thickness", "auras", { label = "Border thickness", min = 1, max = 5, step = 1 }))
 	for _, t in ipairs(ns.Auras.DISPEL_TYPES) do
