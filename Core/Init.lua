@@ -106,9 +106,9 @@ ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 	pendingOrder = {}
 	for i = 1, #order do
 		local key = order[i]
-		local fn = pending[key]
+		local job = pending[key]
 		pending[key] = nil
-		if fn then fn() end
+		if job then job() end
 	end
 end)
 

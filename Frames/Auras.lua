@@ -405,8 +405,8 @@ function A:ResolveSpells(text, knownOnly)
 	local function add(id)
 		if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
 	end
-	for token in (text or ""):gmatch("[^,;]+") do
-		token = token:gsub("^%s+", ""):gsub("%s+$", "")
+	for piece in (text or ""):gmatch("[^,;]+") do
+		local token = piece:gsub("^%s+", ""):gsub("%s+$", "")
 		local num = tonumber(token)
 		if num then
 			add(num)
