@@ -3,8 +3,7 @@
 # Usage: curseforge-upload.sh <project id> <zip> <toc>. Needs CF_API_KEY (a CurseForge API token); skips without it.
 set -euo pipefail
 project="$1"; zip="$2"; toc="$3"
-CF_API_KEY="$(printf %s "${CF_API_KEY:-}" | tr -d " 
-")"
+CF_API_KEY="$(printf %s "${CF_API_KEY:-}" | tr -d ' \r\n')"
 if [ -z "${CF_API_KEY:-}" ]; then
   echo "::warning::No CF_API_KEY secret: not uploading to CurseForge."
   exit 0
