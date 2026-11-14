@@ -40,6 +40,7 @@ end
 O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Header(s, "Auras", "Buffs, debuffs and dispel highlights. Blizzard draws these for us, so they keep working in combat.")
 	W.Toggle(s, Bind("auras.enabled", "auras", { label = "Show auras on frames" }))
+	W.Note(s, "Hide or pin specific buffs and debuffs on the |cffffffffAura filters|r page.")
 	W.Toggle(s, Bind("auras.tooltips", "auras", {
 		label = "Aura tooltips on mouseover",
 		desc = "When on, aura icons catch the mouse, so clicking an icon won't click-cast on that player.",

@@ -132,6 +132,12 @@ function CC:ApplyTo(button)
 			button:SetAttribute(p .. "macrotext" .. n, b.value)
 		end
 	end
+	-- Ctrl+Alt+Right-click opens Lattice's own menu (Modules/UnitMenu.lua) unless it is bound.
+	-- An unknown type makes the secure click do nothing, so no unit menu pops up with it.
+	local M = ns.UnitMenu
+	if M and M:Enabled() then
+		button:SetAttribute(Prefix(M.MODS) .. "type" .. M.BUTTON, M.TYPE)
+	end
 end
 
 function CC:ApplyAll()

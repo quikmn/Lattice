@@ -40,7 +40,37 @@ ns.Defaults.auras = {
 		} },
 	-- Grid2-style spell indicators: { name, spells = {ids}, mine, point, size, style = square|icon, color, swipe }
 	indicators = {},
+	-- Aura filters: [spellID] = "show" (always show, first) | "hide" (never show).
+	-- A default the user removed is stored as false so it doesn't come back.
+	lists = {
+		-- Always show (from anyone): cooldowns a healer wants to see
+		[10060] = "show", -- Power Infusion
+		[29166] = "show", -- Innervate
+		[1022] = "show", [5599] = "show", [10278] = "show", -- Blessing of Protection
+		[20707] = "show", [20762] = "show", [20763] = "show", [20764] = "show", [20765] = "show", -- Soulstone Resurrection
+		-- Always show: raid debuffs that need action (only where the game allows it, see CanFilterDebuff)
+		[20475] = "show", -- Living Bomb (Baron Geddon)
+		[18173] = "show", -- Burning Adrenaline (Vaelastrasz)
+		[23170] = "show", -- Brood Affliction: Bronze (Chromaggus)
+		[24328] = "show", -- Corrupted Blood (Hakkar)
+		[28169] = "show", -- Mutating Injection (Grobbulus)
+		[27808] = "show", -- Frost Blast (Kel'Thuzad)
+		[28410] = "show", -- Chains of Kel'Thuzad
+		[27819] = "show", -- Detonate Mana (Kel'Thuzad)
+		-- Never show: short procs and noise
+		[16870] = "hide", [12536] = "hide", [16246] = "hide", -- Clearcasting (druid, mage, shaman)
+		[12966] = "hide", [16257] = "hide", -- Flurry (warrior, shaman)
+		[12880] = "hide", -- Enrage (warrior talent)
+		[15271] = "hide", -- Spirit Tap
+		[16886] = "hide", -- Nature's Grace
+		[14893] = "hide", -- Inspiration
+		[16177] = "hide", -- Ancestral Fortitude
+		[11196] = "hide", -- Recently Bandaged
+		[15007] = "hide", -- Resurrection Sickness
+	},
 }
+
+A.LIST_MODES = { show = "Always show", hide = "Never show" }
 
 ------------------------------------------------------------------------
 -- Availability
@@ -211,30 +241,184 @@ local function ConfigureFlow(c, point, grow)
 	end
 end
 
-local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, candidate)
+local function AddGroup(c, key, filter, max, init, sortMethod, candidate, order)
+	c:AddAuraGroup(key, filter, {
+		maxFrameCount = max,
+		initializeFrame = init,
+		sortMethod = sortMethod or AuraContainerSortMethod.Default,
+		candidateFilters = candidate,
+		layout = { elementSpacing = 1, lineSpacing = 1, layoutIndex = order },
+	})
+end
+
+-- One flowing row of icons. Spells on the "always show" list come first (from
+-- anyone); the normal group skips both listed and hidden spells.
+local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter)
 	local c = NewContainer(btn)
 	c:ClearAllPoints()
 	c:SetPoint(cfg.point, btn.visual.health, cfg.point, cfg.x or 0, cfg.y or 0)
 	ConfigureFlow(c, cfg.point, cfg.grow)
-	c:AddAuraGroup(key, filter, {
-		maxFrameCount = cfg.max,
-		initializeFrame = init,
-		sortMethod = sortMethod or AuraContainerSortMethod.Default,
-		candidateFilters = candidate,
-		layout = { elementSpacing = 1, lineSpacing = 1 },
-	})
+	if lists.show then
+		AddGroup(c, key .. "Listed", listedFilter, cfg.max, init, sortMethod, { includeSpellIDs = lists.show }, 1)
+	end
+	AddGroup(c, key, filter, cfg.max, init, sortMethod, lists.skip and { excludeSpellIDs = lists.skip } or nil, 2)
 	return c
+end
+
+------------------------------------------------------------------------
+-- Aura filters (always show / never show)
+------------------------------------------------------------------------
+-- Turn the saved list into the spell-ID sets the containers take.
+-- Returns { show = {[id]=true} | nil, hide = ... | nil, skip = show+hide | nil }.
+function A.ListSets(lists)
+	local show, hide, skip = {}, {}, {}
+	for key, mode in pairs(lists or {}) do
+		local id = tonumber(key)
+		if id and mode == "show" then show[id] = true; skip[id] = true end
+		if id and mode == "hide" then hide[id] = true; skip[id] = true end
+	end
+	return { show = next(show) and show or nil, hide = next(hide) and hide or nil, skip = next(skip) and skip or nil }
+end
+
+function A:ListMode(id)
+	local m = ns.db.auras.lists[tonumber(id) or id]
+	return (m == "show" or m == "hide") and m or nil
+end
+
+-- mode: "show" | "hide" | nil (remove). Rebuilds containers out of combat.
+function A:SetListMode(id, mode, noRefresh)
+	id = tonumber(id)
+	if not id or id < 1 or id ~= math.floor(id) then return false end
+	local lists = ns.db.auras.lists
+	if mode == "show" or mode == "hide" then
+		lists[id] = mode
+	elseif ns.Defaults.auras.lists[id] ~= nil then
+		lists[id] = false -- remember that a default was removed
+	else
+		lists[id] = nil
+	end
+	if not noRefresh then self:Refresh() end
+	return true
+end
+
+-- Sorted entries for the options page: { id, mode, name }.
+function A:ListEntries(mode)
+	local out = {}
+	for id, m in pairs(ns.db.auras.lists) do
+		if m == mode then
+			out[#out + 1] = { id = id, mode = m, name = ns.ClickCast.SpellName(id) or ("Spell " .. id) }
+		end
+	end
+	table.sort(out, function(a, b)
+		if a.name ~= b.name then return a.name < b.name end
+		return a.id < b.id
+	end)
+	return out
+end
+
+function A:ResetLists()
+	ns.db.auras.lists = U.CopyTable(ns.Defaults.auras.lists)
+	self:Refresh()
+end
+
+-- Debuffs on friendly players can only be filtered by spell ID when the game
+-- marks the spell "never secret" (Blizzard's rule). true / false / nil (unknown).
+function A:CanFilterDebuff(id)
+	if not (C_Secrets and C_Secrets.GetSpellAuraSecrecy) then return nil end
+	local ok, level = pcall(C_Secrets.GetSpellAuraSecrecy, id)
+	if not ok or S.IsSecret(level) or level == nil then return nil end
+	local never = Enum.SecrecyLevel and Enum.SecrecyLevel.NeverSecret or 0
+	return level == never
+end
+
+-- Plain-text export: one "show <id> <name>" / "hide <id> <name>" per line.
+function A:ExportLists()
+	local lines = { "# Lattice aura filters: show = always show, hide = never show" }
+	for _, mode in ipairs({ "show", "hide" }) do
+		for _, e in ipairs(self:ListEntries(mode)) do
+			lines[#lines + 1] = string.format("%s %d %s", mode, e.id, e.name)
+		end
+	end
+	return table.concat(lines, "\n")
+end
+
+local MODE_WORDS = { show = "show", always = "show", whitelist = "show", hide = "hide", never = "hide", blacklist = "hide" }
+
+-- Reads the export format back. Also accepts spell names ("hide Flurry") when
+-- the name can be looked up. replace = start from an empty list.
+-- Returns the number of entries read and the lines that couldn't be read.
+function A:ImportLists(text, replace)
+	local changes, bad = {}, {}
+	for raw in (text or ""):gmatch("[^\r\n]+") do
+		local line = raw:gsub("#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+		if line ~= "" then
+			local word, rest = line:match("^(%a+)%s+(.+)$")
+			local mode = word and MODE_WORDS[word:lower()]
+			local ids = {}
+			if mode then
+				local num = tonumber(rest:match("^(%d+)"))
+				if num then ids = { num } else ids = self:ResolveSpells(rest) end
+			end
+			if mode and #ids > 0 then
+				for _, id in ipairs(ids) do changes[#changes + 1] = { id, mode } end
+			else
+				bad[#bad + 1] = raw
+			end
+		end
+	end
+	if replace and #changes > 0 then
+		local ids = {}
+		for id in pairs(ns.db.auras.lists) do ids[#ids + 1] = id end
+		for _, id in ipairs(ids) do self:SetListMode(id, nil, true) end
+	end
+	for _, c in ipairs(changes) do self:SetListMode(c[1], c[2], true) end
+	self:Refresh()
+	return #changes, bad
+end
+
+-- The auras a player has right now, for the picker. Out of combat only (addons
+-- can't read auras in combat). Returns a list, or nil and a reason.
+function A:CurrentAuras(unit)
+	if not unit or not UnitExists(unit) then return nil, "Nobody to read auras from." end
+	if not ns.Roles.AurasReadable() then return nil, "Auras can't be read in combat." end
+	local byIndex = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+	if not byIndex then return nil, "This client can't list auras." end
+	local out, seen = {}, {}
+	for _, filter in ipairs({ "HARMFUL", "HELPFUL" }) do
+		for i = 1, 40 do
+			local ok, data = pcall(byIndex, unit, i, filter)
+			if not ok or type(data) ~= "table" then break end
+			local id = S.Plain(data.spellId, nil)
+			if id and not seen[id] then
+				seen[id] = true
+				out[#out + 1] = {
+					id = id, harmful = filter == "HARMFUL",
+					name = S.Plain(data.name, nil) or ns.ClickCast.SpellName(id) or ("Spell " .. id),
+					icon = S.Plain(data.icon, nil),
+				}
+			end
+		end
+	end
+	return out
 end
 
 function A:BuildContainers(btn)
 	local D = ns.db.auras
 	local set = {}
 	local v = btn.visual
+	local lists = A.ListSets(D.lists)
+	-- Hidden spells are skipped everywhere (boss slot, dispel highlight, defensives too).
+	local function hidden(extra)
+		if not lists.hide then return extra end
+		extra = extra or {}
+		extra.excludeSpellIDs = lists.hide
+		return extra
+	end
 
 	if D.debuffs.enabled then
 		local cfg = D.debuffs
 		local c = AddGroupContainer(btn, "debuffs", "HARMFUL", cfg, DebuffInit(cfg.size, cfg.swipe, cfg.stacks),
-			AuraContainerSortMethod.UnitFrameDebuff)
+			AuraContainerSortMethod.UnitFrameDebuff, lists, "HARMFUL")
 		if cfg.onlyDispellable and c.SetAuraProcessingPolicy and CustomAuraContainerAuraProcessingPolicy then
 			c:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, { displayOnlyDispellableDebuffs = true })
 		end
@@ -247,7 +431,7 @@ function A:BuildContainers(btn)
 		-- spells (Renew, Rejuvenation) may not carry on Forever, so it hid them.
 		local filter = cfg.source == "all" and "HELPFUL" or "HELPFUL|PLAYER"
 		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks),
-			AuraContainerSortMethod.ExpirationOnly)
+			AuraContainerSortMethod.ExpirationOnly, lists, "HELPFUL")
 	end
 
 	-- One container for all manually-anchored slots.
@@ -257,14 +441,14 @@ function A:BuildContainers(btn)
 
 	if D.dispel.enabled then
 		local filter = D.dispel.onlyMine and "HARMFUL|RAID" or "HARMFUL|RAID_PLAYER_DISPELLABLE"
-		slots:AddAuraSlot("dispel", filter, { initializeFrame = DispelInit(v) })
+		slots:AddAuraSlot("dispel", filter, { initializeFrame = DispelInit(v), candidateFilters = hidden() })
 		anySlot = true
 	end
 
 	if D.boss.enabled then
 		local cfg = D.boss
 		slots:AddAuraSlot("boss", "HARMFUL", {
-			candidateFilters = { isBossOrRoleAura = true },
+			candidateFilters = hidden({ isBossOrRoleAura = true }),
 			sortMethod = AuraContainerSortMethod.UnitFrameDebuff,
 			initializeFrame = function(b)
 				IconInit(cfg.size, true, true)(b)
@@ -279,6 +463,7 @@ function A:BuildContainers(btn)
 		local cfg = D.defensive
 		slots:AddAuraSlot("defensive", "HELPFUL|BIG_DEFENSIVE", {
 			sortMethod = AuraContainerSortMethod.BigDefensive,
+			candidateFilters = hidden(),
 			initializeFrame = function(b)
 				IconInit(cfg.size, true, false)(b)
 				b:ClearAllPoints()
@@ -403,7 +588,7 @@ end)
 function A:ResolveSpells(text, knownOnly)
 	local ids, seen = {}, {}
 	local function add(id)
-		if id and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
+		if type(id) == "number" and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
 	end
 	for piece in (text or ""):gmatch("[^,;]+") do
 		local token = piece:gsub("^%s+", ""):gsub("%s+$", "")

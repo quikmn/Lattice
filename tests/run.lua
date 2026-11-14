@@ -355,6 +355,116 @@ step("power bar: rules per power type and role", function()
 	MOCK.RunTimers()
 end)
 
+step("aura filters: lists reach the containers", function()
+	local A = ns.Auras
+	local sets = A.ListSets(ns.db.auras.lists)
+	check(sets.show[10060] and sets.hide[12966], "defaults missing")
+	check(sets.skip[10060] and sets.skip[12966], "skip should hold both lists")
+	check(A.ListSets({}).show == nil and A.ListSets({ [5] = false }).skip == nil, "empty and removed entries")
+	MOCK.SetGroup(5, false)
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.UpdateAllHeaders()
+	MOCK.RunTimers()
+	A:SetListMode(774, "show")
+	MOCK.RunTimers()
+	local b
+	for _, btn in ipairs(ns.Buttons.all) do if btn.unit == "party1" then b = btn end end
+	local groups, slots = {}, {}
+	for _, c in ipairs(b.auraContainers) do
+		for k, g in pairs(c.__groups) do groups[k] = g end
+		for k, sl in pairs(c.__slots) do slots[k] = sl end
+	end
+	local bl, bn = groups.buffsListed, groups.buffs
+	check(bl and bl.filter == "HELPFUL" and bl.opts.candidateFilters.includeSpellIDs[774], "listed buff group")
+	check(bl.opts.layout.layoutIndex < bn.opts.layout.layoutIndex, "listed buffs should come first")
+	local ex = bn.opts.candidateFilters.excludeSpellIDs
+	check(ex[774] and ex[12966] and bn.filter == "HELPFUL|PLAYER", "normal buff group should skip listed and hidden")
+	check(groups.debuffsListed and groups.debuffs.opts.candidateFilters.excludeSpellIDs[11196], "debuff groups")
+	check(slots.boss.opts.candidateFilters.isBossOrRoleAura and slots.boss.opts.candidateFilters.excludeSpellIDs[12966], "boss slot")
+	check(slots.dispel.opts.candidateFilters.excludeSpellIDs[15007], "dispel slot")
+	check(slots.defensive.opts.candidateFilters.excludeSpellIDs[12966], "defensive slot")
+	check(not slots.dispel.opts.candidateFilters.excludeSpellIDs[774], "an always-show spell must not be hidden")
+
+	-- removing a default sticks through logout/login
+	A:SetListMode(12966, nil)
+	check(ns.db.auras.lists[12966] == false, "removed default should be stored as false")
+	A:SetListMode(774, nil)
+	check(ns.db.auras.lists[774] == nil, "removed own entry should vanish")
+	local p = ns.Util.CopyTable(ns.db)
+	ns.Util.StripDefaults(p, ns.Defaults)
+	check(p.auras.lists[12966] == false and p.auras.lists[10060] == nil, "strip should keep only changes")
+	ns.Util.FillDefaults(p, ns.Defaults)
+	check(p.auras.lists[12966] == false and p.auras.lists[10060] == "show", "fill should not bring back a removed default")
+	check(not A.ListSets(p.auras.lists).skip[12966], "removed default still applied")
+	check(not A:SetListMode("abc", "hide") and not A:SetListMode(0, "hide"), "bad ids accepted")
+end)
+
+step("aura filters: text import and export", function()
+	local A = ns.Auras
+	local text = A:ExportLists()
+	check(text:find("show 10060", 1, true) and text:find("hide 11196", 1, true), "export missing lines: " .. text)
+	check(not text:find("12966", 1, true), "removed default exported")
+	local n, bad = A:ImportLists("# my list\nshow 774 Rejuvenation\nhide Healing Touch\nnever 9999\nbogus line\nhide NoSuchSpellAnywhere", true)
+	check(n == 3 and #bad == 2 and bad[1] == "bogus line", "import counts: " .. n .. " / " .. #bad)
+	check(A:ListMode(774) == "show" and A:ListMode(5185) == "hide" and A:ListMode(9999) == "hide", "imported modes")
+	check(A:ListMode(10060) == nil and ns.db.auras.lists[10060] == false, "replace should drop defaults")
+	A:ImportLists(text, true)
+	check(A:ListMode(10060) == "show" and A:ListMode(774) == nil, "round trip")
+	A:ResetLists()
+	check(A:ListMode(12966) == "hide", "reset to defaults")
+	MOCK.RunTimers()
+end)
+
+step("frame menu: Ctrl+Alt+Right-click", function()
+	local W, M = ns.Widgets, ns.UnitMenu
+	local b
+	for _, btn in ipairs(ns.Buttons.all) do if btn.unit == "party1" then b = btn end end
+	check(b:GetAttribute("alt-ctrl-type2") == M.TYPE, "menu click should be a no-op for the secure button")
+	local real, last = W.OpenPopup, nil
+	W.OpenPopup = function(_, items, current, onPick) last = { items = items, current = current, pick = onPick } end
+	b.__scripts.PostClick(b, "RightButton")
+	check(last == nil, "menu opened without modifiers")
+	MOCK.mods = { ctrl = true, alt = true }
+	b.__scripts.PostClick(b, "RightButton")
+	check(last and last.items[1].title and last.current == "auto", "menu not opened")
+	last.pick("notank")
+	check(ns.Roles:Override(ns.Roles.Key("party1")) == "notank", "notank from menu")
+	b.__scripts.PostClick(b, "RightButton")
+	check(last.current == "notank", "menu should show the current choice")
+	last.pick("auto")
+	check(ns.Roles:Override(ns.Roles.Key("party1")) == nil, "auto from menu")
+	-- aura picker
+	MOCK.auras.party1 = { { spellId = 23170, name = "Brood Affliction: Bronze", harmful = true }, { spellId = 1243, name = "Power Word: Fortitude" } }
+	b.__scripts.PostClick(b, "RightButton")
+	last.pick("auras")
+	check(#last.items == 3, "picker should list two auras")
+	local fort
+	for _, it in ipairs(last.items) do if it.text and it.text:find("Fortitude") then fort = it.value end end
+	last.pick(fort)
+	last.pick("hide")
+	check(ns.Auras:ListMode(1243) == "hide", "picked aura not hidden")
+	-- no picker in combat
+	MOCK.combat = true
+	b.__scripts.PostClick(b, "RightButton")
+	local before = last
+	last.pick("auras")
+	check(last == before, "picker opened in combat")
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.mods = {}
+	W.OpenPopup = real
+	ns.Auras:SetListMode(1243, nil)
+	MOCK.auras = {}
+	-- a user binding on that click wins
+	ns.ClickCast:Add({ button = 2, mods = "alt-ctrl", action = "spell", value = 774 })
+	MOCK.RunTimers()
+	check(b:GetAttribute("alt-ctrl-type2") == "spell" and not M:Enabled(), "user binding should replace the menu")
+	ns.ClickCast:Remove(ns.ClickCast:FindConflict(2, "alt-ctrl"))
+	MOCK.RunTimers()
+	check(b:GetAttribute("alt-ctrl-type2") == M.TYPE, "menu should come back")
+	MOCK.RunTimers()
+end)
+
 step("class presets add only known spells", function()
 	local realClass = UnitClass
 	UnitClass = function(u) if u == "player" then return "Druid", "DRUID", 11 end return realClass(u) end
@@ -384,7 +494,7 @@ end)
 
 step("options window: every page builds", function()
 	ns.Options:Open()
-	for _, id in ipairs({ "general", "layout", "appearance", "auras", "clickcast", "hovercast", "profiles" }) do
+	for _, id in ipairs({ "general", "layout", "appearance", "auras", "aurafilters", "clickcast", "hovercast", "profiles" }) do
 		ns.Options:ShowPage(id)
 	end
 	ns.Options:RebuildAll()
@@ -428,6 +538,11 @@ step("slash commands", function()
 	SlashCmdList.LATTICE("status")
 	SlashCmdList.LATTICE("preview 10")
 	SlashCmdList.LATTICE("preview")
+	SlashCmdList.LATTICE("hide 1243")
+	assert(ns.Auras:ListMode(1243) == "hide", "slash hide")
+	SlashCmdList.LATTICE("unlist 1243")
+	assert(ns.Auras:ListMode(1243) == nil, "slash unlist")
+	SlashCmdList.LATTICE("show nosuchspell")
 	SlashCmdList.LATTICE("help")
 end)
 

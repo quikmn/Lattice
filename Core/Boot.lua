@@ -107,6 +107,9 @@ local function Help()
 	ns:Print("  /lattice notank [name]    never treat a player as tank")
 	ns:Print("  /lattice autotank [name]  guess again for that player")
 	ns:Print("  /lattice tanks      list who counts as tank and why")
+	ns:Print("  /lattice show|hide <spell>   always / never show an aura (name or ID)")
+	ns:Print("  /lattice unlist <spell>      take an aura off the filters")
+	ns:Print("  Ctrl+Alt+Right-click a frame: tank choice and aura picker")
 	ns:Print("  /lattice debug      toggle debug messages")
 end
 
@@ -135,6 +138,13 @@ SlashCmdList.LATTICE = function(msg)
 		ns.TankCommand(cmd, arg)
 	elseif cmd == "tanks" then
 		ns.ListTanks()
+	elseif cmd == "show" or cmd == "hide" or cmd == "unlist" then
+		local ids = ns.Auras:ResolveSpells(arg)
+		if #ids == 0 then ns:Print("No spell found for \"" .. arg .. "\". Spell IDs always work.") return end
+		for _, id in ipairs(ids) do ns.Auras:SetListMode(id, cmd ~= "unlist" and cmd or nil, true) end
+		ns.Auras:Refresh()
+		if ns.Options:IsShown() then ns.Options:RebuildPage("aurafilters") end
+		ns:Printf("%s: %s", table.concat(ids, ", "), cmd == "unlist" and "off the filters" or ns.Auras.LIST_MODES[cmd]:lower())
 	elseif cmd == "debug" then
 		ns.db.debug = not ns.db.debug
 		ns:Print("debug " .. (ns.db.debug and "on" or "off"))

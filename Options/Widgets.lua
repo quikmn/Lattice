@@ -276,7 +276,10 @@ local function ClosePopup()
 end
 W.ClosePopup = ClosePopup
 
-local function OpenPopup(owner, items, current, onPick)
+-- items = { { value, text, icon?, title? }, ... }. A title row can't be clicked.
+-- opts.width overrides the owner's width; opts.atCursor opens it at the mouse.
+local function OpenPopup(owner, items, current, onPick, opts)
+	opts = opts or {}
 	if not popup then
 		catcher = CreateFrame("Button", nil, UIParent)
 		catcher:SetAllPoints(UIParent)
@@ -292,7 +295,7 @@ local function OpenPopup(owner, items, current, onPick)
 		popup.buttons = {}
 	end
 	for _, b in ipairs(popup.buttons) do b:Hide() end
-	local width = owner:GetWidth()
+	local width = opts.width or (owner and owner:GetWidth()) or 200
 	for i, item in ipairs(items) do
 		local b = popup.buttons[i]
 		if not b then
@@ -301,29 +304,49 @@ local function OpenPopup(owner, items, current, onPick)
 			b.hl = U.Solid(b, "BACKGROUND", rgba(T.accentDim))
 			b.hl:SetAllPoints()
 			b.hl:Hide()
+			b.icon = b:CreateTexture(nil, "ARTWORK")
+			b.icon:SetSize(16, 16)
+			b.icon:SetPoint("LEFT", 8, 0)
+			b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 			b.text = Text(b, T.font, T.text)
-			b.text:SetPoint("LEFT", 10, 0)
 			b.text:SetPoint("RIGHT", -10, 0)
 			b.text:SetWordWrap(false)
-			b:SetScript("OnEnter", function(self) self.hl:Show() end)
+			b:SetScript("OnEnter", function(self) if not self.isTitle then self.hl:Show() end end)
 			b:SetScript("OnLeave", function(self) if not self.selected then self.hl:Hide() end end)
 			popup.buttons[i] = b
 		end
 		b:SetPoint("TOPLEFT", 1, -1 - (i - 1) * 22)
 		b:SetPoint("RIGHT", -1, 0)
+		b.icon:SetShown(item.icon ~= nil)
+		if item.icon then b.icon:SetTexture(item.icon) end
+		b.text:ClearAllPoints()
+		b.text:SetPoint("LEFT", item.icon and 30 or 10, 0)
+		b.text:SetPoint("RIGHT", -10, 0)
 		b.text:SetText(item.text)
-		b.selected = item.value == current
+		b.isTitle = item.title and true or false
+		b.selected = not b.isTitle and current ~= nil and item.value == current
 		b.hl:SetShown(b.selected)
-		b.text:SetTextColor(rgba(b.selected and T.accent or T.text))
-		b:SetScript("OnClick", function() ClosePopup(); onPick(item.value) end)
+		b.text:SetTextColor(rgba((b.isTitle and T.muted) or (b.selected and T.accent) or T.text))
+		b:SetScript("OnClick", function()
+			if b.isTitle then return end
+			ClosePopup()
+			onPick(item.value)
+		end)
 		b:Show()
 	end
 	popup:SetSize(width, #items * 22 + 2)
 	popup:ClearAllPoints()
-	popup:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+	if opts.atCursor or not owner then
+		local x, y = GetCursorPosition()
+		local scale = UIParent:GetEffectiveScale()
+		popup:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 4, y / scale - 4)
+	else
+		popup:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
+	end
 	catcher:Show()
 	popup:Show()
 end
+W.OpenPopup = OpenPopup
 
 function W.Dropdown(stack, opt)
 	local f = CreateFrame("Frame")

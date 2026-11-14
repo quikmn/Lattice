@@ -26,6 +26,7 @@ Frames\TestMode.lua
 Modules\Roles.lua
 Modules\ClickCast.lua
 Modules\HoverCast.lua
+Modules\UnitMenu.lua
 Modules\Mover.lua
 
 Options\Widgets.lua
@@ -34,6 +35,7 @@ Options\Pages\General.lua
 Options\Pages\Layout.lua
 Options\Pages\Appearance.lua
 Options\Pages\Auras.lua
+Options\Pages\AuraFilters.lua
 Options\Pages\ClickCast.lua
 Options\Pages\HoverCast.lua
 Options\Pages\Profiles.lua

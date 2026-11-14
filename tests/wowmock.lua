@@ -378,9 +378,11 @@ InCombatLockdown = function() return MOCK.combat end
 IsInGroup = function() return MOCK.groupSize > 1 end
 IsInRaid = function() return MOCK.raid end
 GetNumGroupMembers = function() return MOCK.groupSize > 1 and MOCK.groupSize or 0 end
-IsShiftKeyDown = function() return false end
-IsControlKeyDown = function() return false end
-IsAltKeyDown = function() return false end
+MOCK.mods = {}
+IsShiftKeyDown = function() return MOCK.mods.shift or false end
+IsControlKeyDown = function() return MOCK.mods.ctrl or false end
+IsAltKeyDown = function() return MOCK.mods.alt or false end
+GetCursorPosition = function() return 400, 300 end
 GetBindingKey = function() return nil end
 ReloadUI = function() end
 C_Timer = {
@@ -473,6 +475,7 @@ UnitHasIncomingResurrection = function() return false end
 UnitPhaseReason = function() return nil end
 UnitIsCharmed = function() return false end
 UnitCanAttack = function() return false end
+UnitCanAssist = function(_, u) return U(u) ~= nil end
 UnitAffectingCombat = function() return MOCK.combat end
 GetRaidTargetIndex = function() return S(nil) end
 GetReadyCheckStatus = function() return nil end
@@ -482,7 +485,10 @@ GetSpecialization = nil
 C_Secrets = { ShouldAurasBeSecret = function() return MOCK.combat end, HasSecretRestrictions = function() return MOCK.secretsOn end }
 C_PartyInfo = {}
 C_Spell = {
-	GetSpellInfo = function(id) return { name = "Spell" .. tostring(id), iconID = 136000 + (tonumber(id) or 0), spellID = id } end,
+	GetSpellInfo = function(id)
+		if not tonumber(id) then return nil end -- names only resolve for known spells (spellbook in the mock)
+		return { name = "Spell" .. tostring(id), iconID = 136000 + id, spellID = tonumber(id) }
+	end,
 	GetSpellTexture = function(id) return 136000 end,
 	GetSpellName = function(id) return "Spell" .. tostring(id) end,
 	IsSpellInRange = function() return S(true) end,

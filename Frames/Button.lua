@@ -174,6 +174,7 @@ function B:Setup(btn)
 		GameTooltip:Hide()
 	end)
 	btn:HookScript("OnShow", function(self) B:UpdateAll(self) end)
+	btn:HookScript("PostClick", function(self, mouse) ns.UnitMenu:OnPostClick(self, mouse) end)
 
 	ns.ClickCast:ApplyTo(btn)
 	B.all[#B.all + 1] = btn
