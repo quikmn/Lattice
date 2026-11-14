@@ -8,6 +8,9 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - `/lattice` opens the settings. `/lattice unlock` lets you move the frames. `/lattice preview 20` shows fake frames.
 - `/lattice probe` lists which unit values the game is hiding from addons right now.
 - `/lattice status` shows why frames or auras are or aren't showing.
+- `/lattice tank <name>`, `/lattice notank <name>`, `/lattice autotank <name>` fix the tank guess for a player; `/lattice tanks` lists who counts as tank.
+- `/lattice show <spell>`, `/lattice hide <spell>`, `/lattice unlist <spell>` edit the aura filters (name or spell ID).
+- Ctrl+Alt+Right-click a frame: tank choice for that player and a picker for their auras.
 
 ## Features
 - Party, raid and large-raid layouts that switch automatically. Pet frames in their own movable block (Layout page).
@@ -16,6 +19,14 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Your HoTs and buffs, debuffs, dispel highlight, boss debuff and big defensives. Grid-style spell indicators, plus one-click presets for your class.
 - Incoming heals, shields, range fade, role, leader, raid marker, ready check, resurrect and summon icons. Dead players tint red, offline players grey.
 - Profiles per spec, import and export.
+- Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
+
+## Unreleased
+- **Tank guessing.** With no roles set, Lattice picks the tank from the raid's main tank mark, Defensive Stance, Bear Form and Righteous Fury. In a group of five it picks one player, or the only Warrior. The guessed tank gets the tank icon. Fix a wrong guess with Ctrl+Alt+Right-click or `/lattice tank`, `notank`, `autotank`. Can be turned off on the General page.
+- **Power bars by type and role.** Energy is hidden (rogues, druids in Cat Form), rage shows only for tanks (warriors, druids in Bear Form), mana shows for everyone. Druids switch as they shift. Change it per power type on the Appearance page.
+- **Aura filters.** A new Aura filters page: always show or never show buffs and debuffs by name or spell ID, with Classic defaults (Power Infusion, Innervate, Blessing of Protection and Soulstone always shown; Clearcasting, Flurry, Enrage and other short procs hidden). Import and export as plain text. Ctrl+Alt+Right-click a frame to pick from that player's auras. The game only lets addons pick out a few debuffs on friendly players by ID, so for most debuffs these filters have no effect; buffs always work.
+- **Polish.** Bars no longer sweep when a frame switches to another player. Heal and shield bars are smoothed too. New dispel style "Border and a light tint". Optional: no aggro border on tanks. Dropdowns and sliders grey out when they don't apply.
+- **Fixes.** A ready check started within 6 seconds of the last one is no longer wiped. Dead and offline looks are refreshed only when that state changes, not on every health tick.
 
 ## How it copes with Forever's secret values
 - Health, heals, absorbs and range are passed straight to status bars, alpha and colour curves, so the addon never does math on them.
