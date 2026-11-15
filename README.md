@@ -21,6 +21,11 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Profiles per spec, import and export.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
+## 0.4.6 (2026-11-15)
+
+- The big defensive icon only shows real defensives (Shield Wall, Last Stand, Evasion, Divine Shield and Protection, Blessing of Protection, Ice Block, Deterrence, Barkskin, Frenzied Regeneration). Before, ordinary buffs like Arcane Intellect or Find Herbs could show there.
+- Out-of-range players fade a little more (35% instead of 45%; General page).
+
 ## 0.4.5 (2026-11-15)
 
 - Long debuffs nobody can dispel (over 10 minutes, like Boosted Rest from a camp tent) are hidden by default. The game doesn't let addons hide other players' debuffs by spell, so this goes by type and length: magic, curses, poisons and diseases always show. Turn it off under Auras: "Hide long debuffs".

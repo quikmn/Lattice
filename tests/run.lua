@@ -398,7 +398,11 @@ step("aura filters: lists reach the containers", function()
 	check(groups.debuffsListed and groups.debuffs.opts.candidateFilters.excludeSpellIDs[11196], "debuff groups")
 	check(slots.boss.opts.candidateFilters.isBossOrRoleAura and slots.boss.opts.candidateFilters.excludeSpellIDs[12966], "boss slot")
 	check(slots.dispel.opts.candidateFilters.excludeSpellIDs[15007], "dispel slot")
-	check(slots.defensive.opts.candidateFilters.excludeSpellIDs[12966], "defensive slot")
+	local def = slots.defensive.opts.candidateFilters.includeSpellIDs
+	check(def and def[871] and not def[774] and slots.defensive.filter == "HELPFUL", "defensive slot shows only the defensive list")
+	check(groups.debuffsDispel and groups.debuffsDispel.opts.candidateFilters.includeDispelTypes.Magic
+		and groups.debuffs.opts.candidateFilters.maxDuration and groups.debuffs.opts.candidateFilters.excludeDispelTypes.Curse,
+		"long debuffs nobody can dispel are skipped, dispellable ones kept")
 	check(not slots.dispel.opts.candidateFilters.excludeSpellIDs[774], "an always-show spell must not be hidden")
 
 	-- removing a default sticks through logout/login

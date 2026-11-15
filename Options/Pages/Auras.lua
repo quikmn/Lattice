@@ -86,7 +86,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Slider(s, Bind("auras.boss.size", "auras", { label = "Icon size", min = 10, max = 40, step = 1 }))
 	Pos(s, "auras.boss", false)
 
-	W.Header(s, "Big defensives", "Shield Wall, Pain Suppression and similar.")
+	W.Header(s, "Big defensives", "Shield Wall, Divine Shield, Evasion, Barkskin, Blessing of Protection and similar.")
 	W.Toggle(s, Bind("auras.defensive.enabled", "auras", { label = "Show big defensive" }))
 	W.Slider(s, Bind("auras.defensive.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
 	Pos(s, "auras.defensive", false)

@@ -271,6 +271,23 @@ end
 -- One flowing row of icons. Spells on the "always show" list come first (from
 -- anyone); the normal group skips both listed and hidden spells.
 local LONG_BUFF = 300
+
+-- Big defensives (Classic): the game's BIG_DEFENSIVE flag lets ordinary buffs through on Forever (Arcane Intellect,
+-- Find Herbs), so the slot only shows these. Spells the game won't let addons check by ID simply don't show.
+local BIG_DEFENSIVES = {}
+for _, id in ipairs({
+	871, -- Shield Wall
+	12975, 12976, -- Last Stand
+	5277, -- Evasion
+	642, 1020, -- Divine Shield
+	498, 5573, -- Divine Protection
+	1022, 5599, 10278, -- Blessing of Protection
+	11958, -- Ice Block
+	19263, -- Deterrence
+	22812, -- Barkskin
+	22842, 22845, -- Frenzied Regeneration
+}) do BIG_DEFENSIVES[id] = true end
+A.BIG_DEFENSIVES = BIG_DEFENSIVES
 local LONG_DEBUFF = 600
 
 local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter, mainExtra)
@@ -494,9 +511,11 @@ function A:BuildContainers(btn)
 
 	if D.defensive.enabled then
 		local cfg = D.defensive
-		slots:AddAuraSlot("defensive", "HELPFUL|BIG_DEFENSIVE", {
+		local ids = {}
+		for id in pairs(BIG_DEFENSIVES) do if not (lists.hide and lists.hide[id]) then ids[id] = true end end
+		slots:AddAuraSlot("defensive", "HELPFUL", {
 			sortMethod = AuraContainerSortMethod.BigDefensive,
-			candidateFilters = hidden(),
+			candidateFilters = { includeSpellIDs = ids },
 			initializeFrame = function(b)
 				IconInit(cfg.size, true, false)(b)
 				b:ClearAllPoints()
