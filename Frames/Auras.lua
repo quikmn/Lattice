@@ -27,7 +27,8 @@ ns.Defaults.auras = {
 	debuffs = { enabled = true, max = 3, size = 16, point = "BOTTOMLEFT", x = 2, y = 2, grow = "RIGHT",
 		onlyDispellable = false, swipe = true, stacks = true },
 	buffs   = { enabled = true, max = 3, size = 14, point = "TOPRIGHT", x = -2, y = -2, grow = "LEFT",
-		source = "mine", swipe = true, stacks = true },  -- mine = my HoTs/buffs, all = raid buffs
+		source = "mine", swipe = true, stacks = true,  -- mine = my HoTs/buffs, all = raid buffs
+		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
 	dispel  = { enabled = true, style = "border", onlyMine = true, thickness = 2,
@@ -256,7 +257,9 @@ end
 
 -- One flowing row of icons. Spells on the "always show" list come first (from
 -- anyone); the normal group skips both listed and hidden spells.
-local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter)
+local LONG_BUFF = 300
+
+local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter, mainExtra)
 	local c = NewContainer(btn)
 	c:ClearAllPoints()
 	c:SetPoint(cfg.point, btn.visual.health, cfg.point, cfg.x or 0, cfg.y or 0)
@@ -264,7 +267,9 @@ local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists,
 	if lists.show then
 		AddGroup(c, key .. "Listed", listedFilter, cfg.max, init, sortMethod, { includeSpellIDs = lists.show }, 1)
 	end
-	AddGroup(c, key, filter, cfg.max, init, sortMethod, lists.skip and { excludeSpellIDs = lists.skip } or nil, 2)
+	local candidate = mainExtra or {}
+	if lists.skip then candidate.excludeSpellIDs = lists.skip end
+	AddGroup(c, key, filter, cfg.max, init, sortMethod, next(candidate) and candidate or nil, 2)
 	return c
 end
 
@@ -433,8 +438,9 @@ function A:BuildContainers(btn)
 		-- RAID_IN_COMBAT relies on a per-spell "show on raid frames" flag that classic-era
 		-- spells (Renew, Rejuvenation) may not carry on Forever, so it hid them.
 		local filter = cfg.source == "all" and "HELPFUL" or "HELPFUL|PLAYER"
+		-- long buffs (30-minute raid buffs) hidden by default; the "always show" list still shows them
 		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks),
-			AuraContainerSortMethod.ExpirationOnly, lists, "HELPFUL")
+			AuraContainerSortMethod.ExpirationOnly, lists, "HELPFUL", cfg.hideLong and { maxDuration = LONG_BUFF } or nil)
 	end
 
 	-- One container for all manually-anchored slots.

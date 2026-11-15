@@ -74,6 +74,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		label = "Which buffs",
 		items = { { value = "mine", text = "Mine only (HoTs, shields)" }, { value = "all", text = "Everyone's raid buffs" } },
 	}))
+	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", { label = "Hide long buffs (over 5 min, like Fortitude)" }))
 	W.Slider(s, Bind("auras.buffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1 }))
 	W.Slider(s, Bind("auras.buffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
 	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left swipe" }))
