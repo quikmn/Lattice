@@ -25,7 +25,8 @@ ns.Defaults.auras = {
 	tooltips = false,          -- aura icons capture the mouse if on (blocks click-casting under them)
 
 	debuffs = { enabled = true, max = 3, size = 16, point = "BOTTOMLEFT", x = 2, y = 2, grow = "RIGHT",
-		onlyDispellable = false, swipe = true, stacks = true },
+		onlyDispellable = false, swipe = true, stacks = true,
+		hideLong = true },  -- skip long debuffs nobody can dispel (Boosted Rest, an hour-long lockout); dispellable ones always show
 	buffs   = { enabled = true, max = 3, size = 14, point = "TOPRIGHT", x = -2, y = -2, grow = "LEFT",
 		source = "mine", swipe = true, stacks = true,  -- mine = my HoTs/buffs, all = raid buffs
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
@@ -270,6 +271,7 @@ end
 -- One flowing row of icons. Spells on the "always show" list come first (from
 -- anyone); the normal group skips both listed and hidden spells.
 local LONG_BUFF = 300
+local LONG_DEBUFF = 600
 
 local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter, mainExtra)
 	local c = NewContainer(btn)
@@ -437,8 +439,18 @@ function A:BuildContainers(btn)
 
 	if D.debuffs.enabled then
 		local cfg = D.debuffs
-		local c = AddGroupContainer(btn, "debuffs", "HARMFUL", cfg, DebuffInit(cfg.size, cfg.swipe, cfg.stacks),
-			AuraContainerSortMethod.UnitFrameDebuff, lists, "HARMFUL")
+		-- The game doesn't let addons filter other players' debuffs by spell, so long lockouts can't be listed away.
+		-- Instead: dispellable debuffs always show; the rest only when they last LONG_DEBUFF seconds or less.
+		local typed = {}
+		for _, t in ipairs(DISPEL_TYPES) do typed[t] = true end
+		local init = DebuffInit(cfg.size, cfg.swipe, cfg.stacks)
+		local c = AddGroupContainer(btn, "debuffs", "HARMFUL", cfg, init,
+			AuraContainerSortMethod.UnitFrameDebuff, lists, "HARMFUL",
+			cfg.hideLong and { excludeDispelTypes = typed, maxDuration = LONG_DEBUFF } or nil)
+		if cfg.hideLong then
+			AddGroup(c, "debuffsDispel", "HARMFUL", cfg.max, init, AuraContainerSortMethod.UnitFrameDebuff,
+				hidden({ includeDispelTypes = typed }), 2)
+		end
 		if cfg.onlyDispellable and c.SetAuraProcessingPolicy and CustomAuraContainerAuraProcessingPolicy then
 			c:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, { displayOnlyDispellableDebuffs = true })
 		end
