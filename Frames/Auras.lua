@@ -68,6 +68,18 @@ ns.Defaults.auras = {
 		[16177] = "hide", -- Ancestral Fortitude
 		[11196] = "hide", -- Recently Bandaged
 		[15007] = "hide", -- Resurrection Sickness
+		-- Never show: tracking (it shows on everyone who has it on)
+		[2383] = "hide", [8387] = "hide", -- Find Herbs
+		[2580] = "hide", [8388] = "hide", -- Find Minerals
+		[2481] = "hide", -- Find Treasure
+		[43308] = "hide", -- Find Fish
+		[1494] = "hide", [1284017] = "hide", -- Track Beasts
+		[5225] = "hide", [19883] = "hide", -- Track Humanoids
+		[5500] = "hide", -- Sense Demons
+		[5502] = "hide", [5503] = "hide", [1241115] = "hide", -- Sense Undead
+		-- Never show: WoW Forever world buffs and lockouts
+		[460939] = "hide", [460940] = "hide", [1304678] = "hide", -- Might of Stormwind
+		[1229451] = "hide", -- Boosted Rest (camp tent lockout)
 	},
 }
 

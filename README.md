@@ -21,6 +21,10 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Profiles per spec, import and export.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
+## 0.4.4 (2026-11-15)
+
+- Never shown by default: tracking (Find Herbs, Find Minerals, Find Treasure, Find Fish, Track Beasts and Humanoids, Sense Demons and Undead), Might of Stormwind and Boosted Rest. Change it on the Aura filters page.
+
 ## 0.4.3 (2026-11-15)
 
 - Fix: an error at login ("Button.lua:272: attempt to index local 'v'") that stopped the frames from loading, when the game had made a party frame Lattice hadn't set up yet.
