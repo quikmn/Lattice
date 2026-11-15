@@ -21,6 +21,10 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Profiles per spec, import and export.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
+## 0.4.3 (2026-11-15)
+
+- Fix: an error at login ("Button.lua:272: attempt to index local 'v'") that stopped the frames from loading, when the game had made a party frame Lattice hadn't set up yet.
+
 ## 0.4.2 (2026-11-15)
 
 - Buff icons skip long buffs (over 5 minutes, like Fortitude or Mark of the Wild) by default, so your HoTs and shields stand out. Turn it off under Auras: "Hide long buffs". Spells on your always-show list still show.

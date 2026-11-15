@@ -93,11 +93,18 @@ end
 ------------------------------------------------------------------------
 -- Layout
 ------------------------------------------------------------------------
+-- The header's buttons. The header can make more buttons later than the ones made up front (Precreate), e.g. when
+-- the group grows: those are set up here on first sight. One that can't be set up yet (combat) is skipped.
 local function Children(hdr)
 	local i = 0
 	return function()
-		i = i + 1
-		return hdr:GetAttribute("child" .. i)
+		while true do
+			i = i + 1
+			local child = hdr:GetAttribute("child" .. i)
+			if not child then return nil end
+			if not child.latticeReady and not InCombatLockdown() then ns.Buttons:Setup(child) end
+			if child.visual then return child end
+		end
 	end
 end
 H.Children = Children
