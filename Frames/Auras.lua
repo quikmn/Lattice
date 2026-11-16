@@ -150,27 +150,8 @@ local function IconInit(size, swipe, stacks)
 	end
 end
 
--- "54m", "2h", "40s": one unit, no space, so it fits under an 18px icon. nil if the client lacks the API.
-local shortFormatter
-local function ShortDurationFormatter()
-	if shortFormatter ~= nil then return shortFormatter or nil end
-	shortFormatter = false
-	pcall(function()
-		local E = Enum
-		local f = C_StringUtil.CreateSecondsFormatter()
-		f:SetDefaultAbbreviation(E.SecondsFormatterAbbreviation.OneLetter)
-		f:SetRounding(E.SecondsFormatterRounding.Truncate)
-		f:SetCanRoundUpLastUnit(true)
-		f:SetMinInterval(E.SecondsFormatterInterval.Seconds)
-		f:SetDesiredUnitCount(1)
-		f:SetStripIntervalWhitespace(E.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
-		shortFormatter = f
-	end)
-	return shortFormatter or nil
-end
-
 -- Raid buff icons sit outside the frame, so they never block click-casting: they always take the mouse (tooltip
--- with the time left) and show the time left under the icon.
+-- with the time left) and show the time left as a thin bar under the icon.
 local function RaidBuffInit(size)
 	return function(b)
 		b:SetSize(size, size)
@@ -186,17 +167,20 @@ local function RaidBuffInit(size)
 		icon:SetAllPoints()
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		b:SetIcon(icon)
-		if b.SetDurationText then
-			-- fixed box the icon's width, one line, so the text never spills onto the next icon or shifts
-			local t = b:CreateFontString(nil, "OVERLAY")
-			U.SetFont(t, math.max(8, math.floor(size * 0.5)), "OUTLINE")
-			t:SetPoint("TOP", b, "BOTTOM", 0, -1)
-			t:SetWidth(size + 2)
-			t:SetJustifyH("CENTER")
-			t:SetWordWrap(false)
-			t:SetNonSpaceWrap(false)
-			local f = ShortDurationFormatter()
-			pcall(b.SetDurationText, b, t, f and { textFormatter = f } or nil)
+		if b.SetDurationBar then
+			-- time left as a thin bar under the icon (hover for the exact time): text doesn't fit at this size
+			local bar = CreateFrame("StatusBar", nil, b)
+			bar:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -2)
+			bar:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
+			bar:SetHeight(2)
+			bar:SetStatusBarTexture(U.WHITE)
+			bar:SetStatusBarColor(0.95, 0.80, 0.30, 1)
+			local back = bar:CreateTexture(nil, "BACKGROUND")
+			back:SetPoint("TOPLEFT", -1, 1)
+			back:SetPoint("BOTTOMRIGHT", 1, -1)
+			back:SetColorTexture(0, 0, 0, 0.8)
+			local dir = Enum.StatusBarTimerDirection and Enum.StatusBarTimerDirection.RemainingTime or nil
+			pcall(b.SetDurationBar, b, bar, dir and { direction = dir } or nil)
 		end
 	end
 end
@@ -563,7 +547,9 @@ function A:BuildContainers(btn)
 		local left = cfg.side == "LEFT"
 		if left then c:SetPoint("TOPRIGHT", btn, "TOPLEFT", -2, 0) else c:SetPoint("TOPLEFT", btn, "TOPRIGHT", 2, 0) end
 		ConfigureFlow(c, left and "TOPRIGHT" or "TOPLEFT", left and "LEFT" or "RIGHT")
-		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, RaidBuffInit(cfg.size), AuraContainerSortMethod.Default,
+		-- sorted by name: the same buff sits in the same column on every frame, and nothing shifts as timers run
+		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, RaidBuffInit(cfg.size),
+			AuraContainerSortMethod.NameOnly or AuraContainerSortMethod.Default,
 			hidden({ includeSpellIDs = RAID_BUFFS }), 1)
 		c:SetShown(A.RaidBuffsShown())
 		btn.raidBuffs = c
