@@ -88,6 +88,10 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		items = { { value = "RIGHT", text = "Right of the frame" }, { value = "LEFT", text = "Left of the frame" } },
 	}))
 	W.Toggle(s, Bind("auras.raidbuffs.inRaid", "auras", { label = "Also in raids" }))
+	W.Toggle(s, Bind("auras.missingBuff", "auras", {
+		label = "Mark players missing my buff",
+		desc = "Priests: Fortitude. Mages: Arcane Intellect (mana users only). Druids: Mark of the Wild. A small icon with a red edge in the corner, in parties and raids. Worked out out of combat.",
+	}))
 	W.Slider(s, Bind("auras.raidbuffs.size", "auras", { label = "Icon size", min = 8, max = 24, step = 1 }))
 
 	W.Header(s, "Boss debuff", "One big icon for the most important boss or role debuff.")
@@ -139,7 +143,9 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		end, 240)
 		preset:SetPoint("LEFT")
 		presetStatus:SetPoint("LEFT", preset, "RIGHT", 10, 0)
-		presetStatus:SetText(table.concat(ns.Auras.PRESETS[class], ", "))
+		local names = {}
+		for _, entry in ipairs(ns.Auras.PRESETS[class]) do names[#names + 1] = type(entry) == "table" and entry.name or entry end
+		presetStatus:SetText(table.concat(names, ", "))
 		s:Add(presetRow, 26)
 	end
 

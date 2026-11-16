@@ -72,6 +72,18 @@ function S.RangeAlpha(unit, outAlpha)
 	return S.PickNumber(checked, S.PickNumber(inRange, 1, outAlpha), 1)
 end
 
+-- Alpha by one of your heals' range (40 yards) when you know one; the game's rough check otherwise, or when the
+-- spell can't tell (an enemy, a spell this client doesn't range-check).
+function S.SpellRangeAlpha(unit, spell, outAlpha)
+	if unit == "player" or UnitIsUnit(unit, "player") then return 1 end
+	local f = C_Spell and C_Spell.IsSpellInRange
+	if spell and f then
+		local ok, r = pcall(f, spell, unit)
+		if ok and (issecret(r) or r ~= nil) then return S.PickNumber(r, 1, outAlpha) end
+	end
+	return S.RangeAlpha(unit, outAlpha)
+end
+
 ------------------------------------------------------------------------
 -- Curves (built from plain constants; evaluated by the client)
 ------------------------------------------------------------------------

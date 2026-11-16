@@ -87,6 +87,20 @@ function H:Create()
 		ns:Print("Pet frames unavailable: " .. tostring(err))
 	end
 
+	-- Tanks, and what each tank is targeting beside it, in their own movable block. Guarded like pets.
+	ok, err = pcall(function()
+		local anchor = ns.Mover:GetAnchor("tanks", "Tanks")
+		self.tanks = NewHeader("LatticeTankHeader", anchor)
+		Precreate(self.tanks, 4)
+		self.tankTargets = NewHeader("LatticeTankTargetHeader", anchor)
+		self.tankTargets:SetAttribute("unitsuffix", "target")
+		Precreate(self.tankTargets, 4)
+	end)
+	if not ok then
+		self.tanks, self.tankTargets = nil, nil
+		ns:Print("Tank frames unavailable: " .. tostring(err))
+	end
+
 	self:ApplyAll()
 end
 
@@ -253,7 +267,10 @@ function H:ApplyRaid()
 		hdr:SetAttribute("showSolo", false)
 		hdr:SetAttribute("groupFilter", tostring(g))
 		ConfigureGrowth(hdr, L, nil, 1)
-		hdr:SetAttribute("groupBy", nil)
+		-- order inside each group: role or class (the group itself is already fixed)
+		local inner = L.innerSort ~= "GROUP" and GROUP_BY[L.innerSort] or nil
+		hdr:SetAttribute("groupBy", inner and inner.groupBy or nil)
+		hdr:SetAttribute("groupingOrder", inner and inner.order or nil)
 		hdr:SetAttribute("sortMethod", (SORT[L.sortMethod] or SORT.INDEX).sortMethod)
 		ResizeChildren(hdr, L)
 
@@ -346,6 +363,66 @@ function H:ApplyPets()
 	ns.Mover:FitAnchor("pets", cols * (L.width + L.spacing), rows * (L.height + L.spacing))
 end
 
+-- The tanks' names in roster order, or nil when the game hides names (then the raid's main tanks are used).
+function H:TankNames()
+	local names = {}
+	for _, unit in ipairs(ns.Roles:Roster()) do
+		if UnitExists(unit) and ns.Roles:IsTank(unit) then
+			local name, realm = UnitName(unit)
+			if not name or ns.Secret.IsSecret(name) then return nil end
+			if realm and not ns.Secret.IsSecret(realm) and realm ~= "" then name = name .. "-" .. realm end
+			names[#names + 1] = name
+		end
+	end
+	return names
+end
+
+-- Tank frames: the raid layout's size, one column of tanks and one of their targets.
+function H:ApplyTanks()
+	local hdr, tgt = self.tanks, self.tankTargets
+	if not hdr then return end
+	local G = ns.db.general
+	local L = {}
+	for k, v in pairs(ns.db.layouts.raid) do L[k] = v end
+	L.orientation = "VERTICAL"
+	local names = self:TankNames()
+	local on = G.enabled and G.tankFrames and (IsInRaid() or G.tankFramesInParty) and (names == nil or #names > 0)
+	for i, h in ipairs({ hdr, tgt }) do
+		h.latticeAnchor = h.latticeAnchor or h:GetParent()
+		h:SetAttribute("_ignore", "config")
+		h:SetAttribute("showRaid", true)
+		h:SetAttribute("showParty", true)
+		h:SetAttribute("showPlayer", true)
+		h:SetAttribute("showSolo", false)
+		h:SetAttribute("groupBy", nil)
+		h:SetAttribute("groupingOrder", nil)
+		if names then
+			h:SetAttribute("groupFilter", nil)
+			h:SetAttribute("nameList", table.concat(names, ","))
+			h:SetAttribute("sortMethod", "NAMELIST")
+		else
+			h:SetAttribute("nameList", nil)
+			h:SetAttribute("groupFilter", "MAINTANK")
+			h:SetAttribute("sortMethod", "INDEX")
+		end
+		ConfigureGrowth(h, L, nil, 1)
+		ResizeChildren(h, L)
+		h:ClearAllPoints()
+		h:SetPoint("TOPLEFT", h.latticeAnchor, "TOPLEFT", i == 1 and 0 or (L.width + 4), 0)
+		h:SetAttribute("_ignore", nil)
+		SetHeaderVisible(h, on and (i == 1 or G.tankTargets) and "show" or "hide")
+		Refresh(h)
+	end
+	for child in Children(tgt) do child.tankTarget = true end
+	ns.Mover:FitAnchor("tanks", (G.tankTargets and 2 or 1) * (L.width + 4), 4 * (L.height + L.spacing))
+end
+
+local function SafeApplyTanks(self)
+	local ok, err = pcall(self.ApplyTanks, self)
+	if not ok and ns.db.debug then ns:Print("Tank frames: " .. tostring(err)) end
+end
+H.SafeApplyTanks = SafeApplyTanks
+
 local function SafeApplyPets(self)
 	local ok, err = pcall(self.ApplyPets, self)
 	if not ok and ns.db.debug then ns:Print("Pet frames: " .. tostring(err)) end
@@ -356,6 +433,7 @@ function H:ApplyAll()
 		self:ApplyParty()
 		self:ApplyRaid()
 		SafeApplyPets(self)
+		SafeApplyTanks(self)
 		ns.Mover:RestoreAll()
 		ns.Buttons:UpdateAllButtons()
 	end)
@@ -371,8 +449,14 @@ function H:OnRosterChanged()
 			if key == "party" then self.activeLayout = "party" end
 			SafeApplyPets(self)
 		end
+		SafeApplyTanks(self)
 	end)
 end
+
+-- A new tank guess or role: rebuild the tank block's name list (out of combat).
+ns:Listen("RolesChanged", function()
+	ns:RunOutOfCombat("headers-tanks", function() SafeApplyTanks(H) end)
+end)
 
 -- Fade real headers out while the preview is up (alpha isn't protected).
 function H:SetPreviewHidden(hidden)
@@ -381,6 +465,8 @@ function H:SetPreviewHidden(hidden)
 	for _, hdr in ipairs(self.raidGroups) do hdr:SetAlpha(a) end
 	if self.raidCombined then self.raidCombined:SetAlpha(a) end
 	if self.pets then self.pets:SetAlpha(a) end
+	if self.tanks then self.tanks:SetAlpha(a) end
+	if self.tankTargets then self.tankTargets:SetAlpha(a) end
 end
 
 ------------------------------------------------------------------------

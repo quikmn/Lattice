@@ -27,6 +27,10 @@ O:RegisterPage("general", "General", nil, function(s)
 	W.Slider(s, Bind("general.rangeAlpha", "appearance", {
 		label = "Out of range opacity", min = 0.1, max = 0.9, step = 0.05,
 	}))
+	W.Toggle(s, Bind("general.rangeBySpell", "appearance", {
+		label = "Use my heal's range (40 yards)",
+		desc = "Priests, druids, shamans and paladins: fade by the range of a heal you know. Other classes use the game's rougher check.",
+	}))
 
 	W.Header(s, "Tanks", "Most groups here have no roles set, so Lattice guesses the tank.")
 	W.Toggle(s, {
@@ -35,6 +39,18 @@ O:RegisterPage("general", "General", nil, function(s)
 		get = function() return ns.db.general.guessTank end,
 		set = function(v) ns.db.general.guessTank = v; ns.Roles:Update() end,
 	})
+	W.Toggle(s, Bind("general.tankFrames", "layout", {
+		label = "Tank frames in raids",
+		desc = "Each tank in a small block of its own. Unlock frames to move it.",
+	}))
+	W.Toggle(s, Bind("general.tankTargets", "layout", {
+		label = "Show what each tank is targeting",
+		disabled = function() return not ns.db.general.tankFrames end,
+	}))
+	W.Toggle(s, Bind("general.tankFramesInParty", "layout", {
+		label = "Tank frames in a party too",
+		disabled = function() return not ns.db.general.tankFrames end,
+	}))
 	W.Note(s, "Wrong guess? |cffffffff/lattice tank <name>|r, |cffffffff/lattice notank <name>|r and |cffffffff/lattice autotank <name>|r fix it for that player. |cffffffff/lattice tanks|r shows who counts as tank.")
 
 	W.Header(s, "Raid size", "Large raids can use a separate, more compact layout.")

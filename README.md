@@ -23,6 +23,11 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 
 ## Unreleased
 
+- Tank frames: in raids, each tank gets a frame in a small block of its own, with what that tank is targeting beside it (red hostile, yellow neutral). Uses assigned roles and Lattice's tank guess, so it works with no roles set. Unlock frames to move it. General page: on/off, targets on/off, also in a party.
+- Missing buff mark: priests see a small Fortitude icon with a red edge on everyone who doesn't have it; mages the same for Arcane Intellect (mana users only), druids for Mark of the Wild. Works in parties and raids. Other players' auras can only be read out of combat, so it is worked out then and kept during a fight. Auras page.
+- Range by your heal: priests, druids, shamans and paladins fade players by the range of a heal they know (40 yards), instead of the game's rougher check. General page.
+- Class presets are Classic spells only. Priests get a Weakened Soul marker (who can't take a shield yet) next to Renew, Power Word: Shield and Fear Ward; paladins get Forbearance. Already added your presets? Click "Add my class's HoTs and shields" again to add the new ones.
+- Raid with one column per group: order the players inside each group by class (or by role). Layout page.
 - Raid buffs get their own row beside each frame: Fortitude, Mark of the Wild, Arcane Intellect, the Blessings and the like, from anyone, so you can see at a glance who is missing yours. Pick the left or right side of the frame. It shows in a party and solo; in a raid only if you turn on "Also in raids" (Auras page). The buff icons on the frame keep your HoTs and shields.
 
 ## 0.4.6 (2026-11-15)

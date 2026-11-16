@@ -41,6 +41,7 @@ function ns:ApplySettingsNow(scope)
 	end
 	if scope == "auras" or scope == "all" then
 		ns.Auras:Refresh()
+		if ns.MissingBuff then ns.MissingBuff:UpdateAll() end
 	end
 	if scope == "clickcast" or scope == "all" then
 		ns.ClickCast:ApplyAll()

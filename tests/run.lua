@@ -379,6 +379,14 @@ step("aura filters: lists reach the containers", function()
 	check(A.ListSets({}).show == nil and A.ListSets({ [5] = false }).skip == nil, "empty and removed entries")
 	check(A.RAID_BUFFS[10938] and A.RAID_BUFFS[21564] and A.RAID_BUFFS[9885], "raid buffs: Fortitude, Prayer of Fortitude, Mark of the Wild")
 	check(A.RaidBuffsShown() == not IsInRaid(), "raid buff row: party yes, raid no by default")
+	check(ns.MissingBuff and ns.MissingBuff.HasBuff, "missing-buff module loaded")
+	for _, entry in ipairs(A.PRESETS.PRIEST) do
+		local name = type(entry) == "table" and entry.name or entry
+		check(name ~= "Prayer of Mending", "presets are Classic spells only")
+	end
+	check(ns.Headers.tanks and ns.Headers.tankTargets, "tank headers made")
+	check(ns.Headers.tankTargets:GetAttribute("unitsuffix") == "target", "tank target header shows targets")
+	check(ns.Buttons.RangeSpell, "range spell lookup")
 	MOCK.SetGroup(5, false)
 	MOCK.Fire("GROUP_ROSTER_UPDATE")
 	MOCK.UpdateAllHeaders()

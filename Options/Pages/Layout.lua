@@ -77,6 +77,12 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 	W.Slider(s, L("groupSpacing", { label = "Gap between groups", min = 0, max = 40, step = 1, disabled = notRaid }))
 	W.Slider(s, L("groupsPerLine", { label = "Groups before wrapping", min = 1, max = 8, step = 1, disabled = notGroups }))
 	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups", disabled = notGroups }))
+	W.Dropdown(s, L("innerSort", {
+		label = "Order inside each group",
+		desc = "Tank, healer, damage uses assigned roles (most groups here have none, so Class is the useful one).",
+		items = { { value = "NONE", text = "Group order" }, { value = "CLASS", text = "Class" }, { value = "ROLE", text = "Tank, healer, damage" } },
+		disabled = notGroups,
+	}))
 	W.Slider(s, L("unitsPerColumn", { label = "Players per column (grid style)", min = 1, max = 40, step = 1, disabled = notGrid }))
 	W.Dropdown(s, {
 		label = "Grid grouping",

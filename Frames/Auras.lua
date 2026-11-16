@@ -33,6 +33,7 @@ ns.Defaults.auras = {
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
 	raidbuffs = { enabled = true, side = "RIGHT", size = 14, max = 6, inRaid = false },
+	missingBuff = true, -- mark players missing your class's long buff (Modules/MissingBuff.lua)
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
 	dispel  = { enabled = true, style = "border", onlyMine = true, thickness = 2,
@@ -296,19 +297,22 @@ local LONG_DEBUFF = 600
 -- The long class buffs, every rank in the Forever client (EverlookDB spells table: Fortitude, Prayer of Fortitude,
 -- Divine Spirit, Prayer of Spirit, Shadow Protection, Prayer of Shadow Protection, Mark and Gift of the Wild, Arcane
 -- Intellect and Brilliance, the Blessings and Greater Blessings; item and NPC versions included).
+A.BUFF_FAMILIES = {
+	fortitude = { 1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, -- Power Word: Fortitude
+		21562, 21564, 450086 }, -- Prayer of Fortitude
+	spirit    = { 14752, 14818, 14819, 16875, 27841, 27681 }, -- Divine Spirit, Prayer of Spirit
+	shadow    = { 976, 977, 1279, 7235, 7241, 7242, 7243, 7244, 10957, 10958, 16874, 17548, 27683 }, -- Shadow Protection
+	wild      = { 1126, 5232, 5234, 5286, 5287, 6756, 8907, 8908, 9884, 9885, 16878, 24752, 364163, 1291335, 1310503,
+		21849, 21850 }, -- Mark of the Wild, Gift of the Wild
+	intellect = { 1459, 1460, 1461, 10156, 10157, 13326, 16876, 364161, 23028 }, -- Arcane Intellect, Arcane Brilliance
+	blessings = { 19740, 19834, 19835, 19836, 19837, 19838, 25291, 25782, 25916, -- Might, Greater
+		19742, 19850, 19852, 19853, 19854, 25290, 25894, 25918, -- Wisdom, Greater
+		20217, 1213408, 25898, 26650 }, -- Kings, Greater, Light
+}
 local RAID_BUFFS = {}
-for _, id in ipairs({
-	1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, -- Power Word: Fortitude
-	21562, 21564, 450086, -- Prayer of Fortitude
-	14752, 14818, 14819, 16875, 27841, 27681, -- Divine Spirit, Prayer of Spirit
-	976, 977, 1279, 7235, 7241, 7242, 7243, 7244, 10957, 10958, 16874, 17548, 27683, -- Shadow Protection, Prayer of
-	1126, 5232, 5234, 5286, 5287, 6756, 8907, 8908, 9884, 9885, 16878, 24752, 364163, 1291335, 1310503, -- Mark of the Wild
-	21849, 21850, -- Gift of the Wild
-	1459, 1460, 1461, 10156, 10157, 13326, 16876, 364161, 23028, -- Arcane Intellect, Arcane Brilliance
-	19740, 19834, 19835, 19836, 19837, 19838, 25291, 25782, 25916, -- Blessing of Might, Greater
-	19742, 19850, 19852, 19853, 19854, 25290, 25894, 25918, -- Blessing of Wisdom, Greater
-	20217, 1213408, 25898, 26650, -- Blessing of Kings, Greater, Blessing of Light
-}) do RAID_BUFFS[id] = true end
+for _, list in pairs(A.BUFF_FAMILIES) do
+	for _, id in ipairs(list) do RAID_BUFFS[id] = true end
+end
 A.RAID_BUFFS = RAID_BUFFS
 
 -- The raid buff row shows in a party (and solo); in a raid only when asked to.
@@ -581,7 +585,9 @@ function A:BuildContainers(btn)
 			local ids = {}
 			for _, id in ipairs(ind.spells) do ids[id] = true end
 			local init = ind.style == "icon" and IconInit(ind.size, ind.swipe, true) or SquareInit(ind.size, ind.color, ind.swipe)
-			slots:AddAuraSlot("ind" .. i, ind.mine and "HELPFUL|PLAYER" or "HELPFUL", {
+			-- harmful = a debuff marker (Weakened Soul, Forbearance); it shows only if the game lets addons pick it by ID
+			local filter = ind.harmful and "HARMFUL" or ind.mine and "HELPFUL|PLAYER" or "HELPFUL"
+			slots:AddAuraSlot("ind" .. i, filter, {
 				candidateFilters = { includeSpellIDs = ids },
 				initializeFrame = function(b)
 					init(b)
@@ -756,13 +762,15 @@ local PRESET_SLOTS = {
 	{ point = "TOP", x = 24,  y = -2, color = { 1.00, 0.45, 0.85, 1 } },
 }
 
+-- Classic spells only. A table entry is a spell you don't cast yourself (a debuff from your own spell): its IDs are
+-- given, and harmful markers show from anyone.
 A.PRESETS = {
-	PRIEST  = { "Renew", "Power Word: Shield", "Prayer of Mending", "Fear Ward" },
-	DRUID   = { "Rejuvenation", "Regrowth", "Lifebloom", "Wild Growth" },
-	SHAMAN  = { "Earth Shield", "Riptide", "Water Shield" },
-	PALADIN = { "Beacon of Light", "Sacred Shield", "Blessing of Protection" },
-	MONK    = { "Renewing Mist", "Enveloping Mist", "Soothing Mist" },
-	EVOKER  = { "Reversion", "Echo", "Dream Breath" },
+	PRIEST  = { "Renew", "Power Word: Shield", { name = "Weakened Soul", ids = { 6788 }, harmful = true,
+		color = { 1.00, 0.30, 0.30, 1 } }, "Fear Ward" },
+	DRUID   = { "Rejuvenation", "Regrowth", "Abolish Poison" },
+	SHAMAN  = { { name = "Ancestral Fortitude", ids = { 16177 }, any = true } },
+	PALADIN = { "Blessing of Protection", "Blessing of Freedom", "Blessing of Sacrifice",
+		{ name = "Forbearance", ids = { 25771 }, harmful = true, color = { 1.00, 0.30, 0.30, 1 } } },
 }
 
 -- Returns the names added and the names skipped (not in your spellbook).
@@ -775,13 +783,16 @@ function A:AddClassPresets()
 		if ind.name then have[ind.name:lower()] = true end
 	end
 	local added, skipped, slot = {}, {}, 0
-	for _, name in ipairs(names) do
+	for _, entry in ipairs(names) do
+		local fixed = type(entry) == "table" and entry or nil
+		local name = fixed and fixed.name or entry
 		if not have[name:lower()] then
-			local ids = self:ResolveSpells(name, true)
+			local ids = fixed and fixed.ids or self:ResolveSpells(name, true)
 			if #ids > 0 and slot < #PRESET_SLOTS then
 				slot = slot + 1
 				local p = PRESET_SLOTS[slot]
-				self:AddIndicator(name, ids, { point = p.point, x = p.x, y = p.y, color = p.color }, true)
+				self:AddIndicator(name, ids, { point = p.point, x = p.x, y = p.y, color = fixed and fixed.color or p.color,
+					harmful = fixed and fixed.harmful or nil, mine = not (fixed and (fixed.harmful or fixed.any)) }, true)
 				added[#added + 1] = name
 			else
 				skipped[#skipped + 1] = name

@@ -365,6 +365,15 @@ end
 function B:UpdateHealthColor(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	if not unit then return end
+	if btn.tankTarget then
+		-- what a tank is fighting: red hostile, yellow neutral, green friendly
+		local reaction = UnitReaction and S.Plain(UnitReaction(unit, "player"), nil)
+		if reaction and reaction >= 5 then v.health:SetStatusBarColor(0.25, 0.75, 0.30)
+		elseif reaction == 4 then v.health:SetStatusBarColor(0.90, 0.80, 0.20)
+		else v.health:SetStatusBarColor(0.80, 0.18, 0.15) end
+		v.bg:SetVertexColor(unpack(A.backgroundColor))
+		return
+	end
 	local _, class = UnitClass(unit)
 	class = S.Plain(class, nil)
 	local r, g, b = U.ClassColor(class)
@@ -561,6 +570,27 @@ function B:UpdateStatus(btn)
 	end
 end
 
+-- The heal whose range decides the fade (40 yards), per class: the first one you know. Cached until spells change.
+local RANGE_SPELLS = {
+	PRIEST = { "Lesser Heal", "Heal", "Flash Heal" },
+	DRUID = { "Healing Touch", "Rejuvenation" },
+	SHAMAN = { "Healing Wave", "Lesser Healing Wave" },
+	PALADIN = { "Holy Light", "Flash of Light" },
+}
+local rangeSpell
+function B.RangeSpell()
+	if rangeSpell == nil then
+		rangeSpell = false
+		local _, class = UnitClass("player")
+		for _, name in ipairs(RANGE_SPELLS[class] or {}) do
+			local ids = ns.Auras and ns.Auras:ResolveSpells(name, true) or {}
+			if ids[1] then rangeSpell = ids[1]; break end
+		end
+	end
+	return rangeSpell or nil
+end
+ns:RegisterEvent("SPELLS_CHANGED", function() rangeSpell = nil end)
+
 function B:UpdateRange(btn)
 	local unit, v = btn.unit, btn.visual
 	if not unit then return end
@@ -574,7 +604,7 @@ function B:UpdateRange(btn)
 		return
 	end
 	S.Try("range", function()
-		v:SetAlpha(S.RangeAlpha(unit, G.rangeAlpha))
+		v:SetAlpha(S.SpellRangeAlpha(unit, G.rangeBySpell ~= false and B.RangeSpell() or nil, G.rangeAlpha))
 	end)
 end
 
@@ -674,6 +704,7 @@ function B:UpdateAll(btn)
 	self:UpdateAggro(btn)
 	self:UpdateReady(btn)
 	if ns.Auras then ns.Auras:Update(btn) end
+	if ns.MissingBuff then ns.MissingBuff:Update(btn) end
 end
 
 function B:UpdateAllButtons()
@@ -775,6 +806,20 @@ function B:RegisterEvents()
 			wipe(B.readyState)
 			ForAll(B.UpdateReady)
 		end)
+	end)
+
+	-- Tank targets ("raid3target"): the game sends no unit events for these, so they are polled.
+	C_Timer.NewTicker(0.2, function()
+		for _, btn in ipairs(B.all) do
+			if btn.tankTarget and btn.unit and btn:IsVisible() then
+				if UnitExists(btn.unit) then
+					btn.visual:Show()
+					B:UpdateAll(btn)
+				else
+					btn.visual:Hide()
+				end
+			end
+		end
 	end)
 
 	-- Range has no reliable push for every case; poll lightly as a backstop.

@@ -8,6 +8,7 @@ local function layout(o)
 		orientation = "VERTICAL",     -- units stack down; groups go side by side
 		sortMethod = "INDEX",         -- INDEX | NAME
 		groupBy = "NONE",             -- NONE | ROLE | CLASS | GROUP
+		innerSort = "NONE",           -- raid, one column per group: order inside each group (NONE | ROLE | CLASS)
 		mode = "groups",              -- raid: groups (one column per group) | combined
 		unitsPerColumn = 5,           -- combined mode
 		groupsPerLine = 8,            -- groups mode: wrap after N groups
@@ -27,11 +28,15 @@ ns.Defaults = {
 		largeRaidThreshold = 25,
 		rangeFade = true,
 		rangeAlpha = 0.35,
+		rangeBySpell = true,           -- fade by your heal's range (40 yd) instead of the game's rough check
 		smoothBars = true,
 		tooltips = true,
 		minimapIcon = true,
 		showPets = false,              -- pet frames (hunter, warlock, ...) in their own movable block
 		guessTank = true,              -- no roles assigned: guess the tank (Modules/Roles.lua)
+		tankFrames = true,             -- a block with each tank (and what it targets), in raids
+		tankTargets = true,
+		tankFramesInParty = false,
 	},
 
 	layouts = {
@@ -44,6 +49,7 @@ ns.Defaults = {
 		party = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -220 },
 		raid  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -220 },
 		pets  = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -520 },
+		tanks = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 30, y = -60 },
 	},
 
 	appearance = {
