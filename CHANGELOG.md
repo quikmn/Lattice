@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Settings: text boxes (macro, import/export) get the same draggable scroll bar, and the mouse wheel over them scrolls the page unless you are typing in them. Scrolling stops on whole pixels so text stays sharp, and an open dropdown list closes when the page scrolls.
 - The player tooltip now shows in combat too, like Blizzard's frames. To keep it out of fights, turn off Tooltip in combat too (General page).
 - Fix: buffs like Renew could vanish when moved to the top-left corner. They grew out of the frame and sat under the raid buff row. Buff and debuff icons now grow into the frame from whichever corner they are in ("Into the frame", the new default under Grow towards).
 - `/lattice feedback` and a Feedback button in the settings window show a link for reporting bugs and ideas.

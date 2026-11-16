@@ -629,6 +629,48 @@ step("options window: every page builds", function()
 	ns.Options:Toggle()
 end)
 
+step("settings: the wheel scrolls the page, text areas only while typing, sliders never", function()
+	ns.Options:Open()
+	ns.Options:ShowPage("profiles")
+	local function patch(sf)
+		sf.SetVerticalScroll = function(self, v) self.__vs = v end
+		sf.GetVerticalScroll = function(self) return self.__vs or 0 end
+	end
+	local page
+	for _, c in ipairs(LatticeOptionsWindow.content.__children) do
+		if c.__kind == "ScrollFrame" and c:IsShown() then page = c end
+	end
+	check(page and page.track, "no page scroll with a bar")
+	local inner
+	for _, w in ipairs(MOCK.widgets) do
+		if w.__kind == "ScrollFrame" and w ~= page then
+			local p = w:GetParent()
+			while p and p ~= page do p = p:GetParent() end
+			if p then inner = w end
+		end
+	end
+	check(inner, "no text area on the profiles page")
+	patch(page); patch(inner)
+	local box = inner.__children[1]
+	local focus = false
+	box.HasFocus = function() return focus end
+	page.__h, page.child.__h = 400, 1500
+	inner.__h, box.__h = 60, 200
+	local wheel = inner:GetScript("OnMouseWheel")
+	wheel(inner, -1)
+	check(page:GetVerticalScroll() == 40 and inner:GetVerticalScroll() == 0, "wheel over a text area didn't scroll the page")
+	focus = true
+	wheel(inner, -1)
+	check(inner:GetVerticalScroll() == 30 and page:GetVerticalScroll() == 40, "wheel while typing didn't scroll the text")
+	inner.__vs = 140
+	wheel(inner, -1)
+	check(page:GetVerticalScroll() == 80, "text at its end didn't pass the wheel to the page")
+	for _, w in ipairs(MOCK.widgets) do
+		if w.__kind == "Slider" then check(not w.__scripts.OnMouseWheel, "a slider takes the mouse wheel") end
+	end
+	ns.Options:Toggle()
+end)
+
 step("preview mode all sizes", function()
 	for _, n in ipairs({ 5, 10, 20, 25, 40 }) do
 		ns.TestMode:Start(n)

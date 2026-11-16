@@ -516,53 +516,28 @@ function W.EditBox(parent, width, height)
 end
 
 ------------------------------------------------------------------------
--- Multi-line text area (import/export)
-------------------------------------------------------------------------
-function W.TextArea(parent, width, height)
-	local holder = CreateFrame("Frame", nil, parent)
-	holder:SetSize(width, height)
-	local bg = U.Solid(holder, "BACKGROUND", rgba(T.surface))
-	bg:SetAllPoints()
-	U.Border(holder, 1, rgba(T.border))
-	local scroll = CreateFrame("ScrollFrame", nil, holder)
-	scroll:SetPoint("TOPLEFT", 8, -8)
-	scroll:SetPoint("BOTTOMRIGHT", -8, 8)
-	local box = CreateFrame("EditBox", nil, scroll)
-	box:SetMultiLine(true)
-	box:SetAutoFocus(false)
-	box:SetWidth(width - 16)
-	U.SetFont(box, T.fontSmall + 1)
-	box:SetTextColor(rgba(T.text))
-	box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-	scroll:SetScrollChild(box)
-	scroll:EnableMouseWheel(true)
-	scroll:SetScript("OnMouseWheel", function(self, delta)
-		local maxScroll = math.max(0, box:GetHeight() - self:GetHeight())
-		self:SetVerticalScroll(math.min(maxScroll, math.max(0, self:GetVerticalScroll() - delta * 30)))
-	end)
-	holder:EnableMouse(true)
-	holder:SetScript("OnMouseDown", function() box:SetFocus() end)
-	holder.box = box
-	return holder
-end
-
-------------------------------------------------------------------------
--- Scrollable page body
+-- Scroll bar (page body and text areas)
 ------------------------------------------------------------------------
 local BAR_W = 12
+local PAGE_STEP = 40
 
-function W.ScrollPage(parent)
-	local scroll = CreateFrame("ScrollFrame", nil, parent)
-	scroll:SetPoint("TOPLEFT")
-	scroll:SetPoint("BOTTOMRIGHT", -(BAR_W + 6), 0)
-	local child = CreateFrame("Frame", nil, scroll)
-	child:SetSize(1, 1)
-	scroll:SetScrollChild(child)
+-- The page scroll around `frame`, if it sits in one.
+local function OuterScroll(frame)
+	local p = frame:GetParent()
+	while p do
+		if rawget(p, "ScrollBy") then return p end -- set by AttachScrollBar below
+		p = p:GetParent()
+	end
+end
 
-	-- Scroll bar beside the page: drag the thumb, or click the track to jump a page up or down.
-	local track = CreateFrame("Frame", nil, parent)
-	track:SetPoint("TOPRIGHT", -3, -2)
-	track:SetPoint("BOTTOMRIGHT", -3, 2)
+-- A scroll bar for `scroll` (a ScrollFrame showing `child`), parented to `holder`; the caller anchors it
+-- (track = the returned frame). Drag the thumb with the left mouse button, or click the track above or
+-- below it to jump a page. Offsets are whole pixels, so text never lands between pixels and blurs.
+-- The wheel scrolls by `step`. With `onlyWhile` given, the wheel scrolls this area only while
+-- onlyWhile() is true (a text area you are typing in) and otherwise scrolls the page around it,
+-- as it also does once this area is at its end.
+local function AttachScrollBar(scroll, child, holder, step, onlyWhile)
+	local track = CreateFrame("Frame", nil, holder)
 	track:SetWidth(BAR_W)
 	local trackBg = U.Solid(track, "BACKGROUND", T.muted[1], T.muted[2], T.muted[3], 0.12)
 	trackBg:SetAllPoints()
@@ -573,26 +548,37 @@ function W.ScrollPage(parent)
 	track:Hide()
 
 	local function maxScroll()
-		return math.max(0, child:GetHeight() - scroll:GetHeight())
+		return math.max(0, math.floor(child:GetHeight() - scroll:GetHeight() + 0.5))
 	end
 	local function update()
 		local viewH, contentH, m = scroll:GetHeight(), child:GetHeight(), maxScroll()
 		if scroll:GetVerticalScroll() > m then scroll:SetVerticalScroll(m) end
 		if m <= 0 or not scroll:IsShown() then track:Hide() return end
 		local trackH = track:GetHeight()
-		local h = math.max(30, trackH * viewH / contentH)
+		local h = math.min(trackH, math.max(30, trackH * viewH / contentH))
 		thumb:SetHeight(h)
 		thumb:ClearAllPoints()
 		thumb:SetPoint("TOP", track, "TOP", 0, -(trackH - h) * scroll:GetVerticalScroll() / m)
 		track:Show()
 	end
 	local function setScroll(v)
-		scroll:SetVerticalScroll(math.min(maxScroll(), math.max(0, v)))
+		ClosePopup() -- an open dropdown list would be left behind
+		scroll:SetVerticalScroll(math.min(maxScroll(), math.max(0, math.floor(v + 0.5))))
 		update()
+	end
+	-- Scrolls by `delta` pixels; false when it was already at that end.
+	function scroll:ScrollBy(delta)
+		local before = self:GetVerticalScroll()
+		setScroll(before + delta)
+		return self:GetVerticalScroll() ~= before
 	end
 
 	local function hover(on)
 		thumbTex:SetVertexColor(T.muted[1], T.muted[2], T.muted[3], on and 0.85 or 0.55)
+	end
+	local function stopDrag(self)
+		self.dragging = nil
+		hover(self:IsMouseOver())
 	end
 	thumb:EnableMouse(true)
 	thumb:SetScript("OnEnter", function() hover(true) end)
@@ -603,14 +589,12 @@ function W.ScrollPage(parent)
 		self.dragging = { y = y / self:GetEffectiveScale(), start = scroll:GetVerticalScroll() }
 		hover(true)
 	end)
-	thumb:SetScript("OnMouseUp", function(self)
-		self.dragging = nil
-		hover(self:IsMouseOver())
-	end)
+	thumb:SetScript("OnMouseUp", stopDrag)
+	thumb:SetScript("OnHide", stopDrag)
 	thumb:SetScript("OnUpdate", function(self)
 		local d = self.dragging
 		if not d then return end
-		if not IsMouseButtonDown("LeftButton") then self.dragging = nil; hover(self:IsMouseOver()) return end
+		if not IsMouseButtonDown("LeftButton") then stopDrag(self) return end
 		local _, y = GetCursorPosition()
 		y = y / self:GetEffectiveScale()
 		local room = track:GetHeight() - self:GetHeight()
@@ -621,21 +605,91 @@ function W.ScrollPage(parent)
 		if button ~= "LeftButton" then return end
 		local _, y = GetCursorPosition()
 		y = y / self:GetEffectiveScale()
-		local page = scroll:GetHeight() - 40
+		local page = math.max(step, scroll:GetHeight() - 40)
 		setScroll(scroll:GetVerticalScroll() + (y < thumb:GetBottom() and page or -page))
 	end)
 
 	scroll:EnableMouseWheel(true)
-	scroll:SetScript("OnMouseWheel", function(_, delta)
-		setScroll(scroll:GetVerticalScroll() - delta * 40)
+	scroll:SetScript("OnMouseWheel", function(self, delta)
+		local outer = OuterScroll(self)
+		if outer and onlyWhile and not onlyWhile() then outer:ScrollBy(-delta * PAGE_STEP) return end
+		if not self:ScrollBy(-delta * step) and outer then outer:ScrollBy(-delta * PAGE_STEP) end
 	end)
+	return track, update, setScroll
+end
+
+------------------------------------------------------------------------
+-- Multi-line text area (import/export)
+------------------------------------------------------------------------
+-- Inside a settings page the wheel scrolls the page; it scrolls the text only while you type in it.
+function W.TextArea(parent, width, height)
+	local holder = CreateFrame("Frame", nil, parent)
+	holder:SetSize(width, height)
+	local bg = U.Solid(holder, "BACKGROUND", rgba(T.surface))
+	bg:SetAllPoints()
+	U.Border(holder, 1, rgba(T.border))
+	local scroll = CreateFrame("ScrollFrame", nil, holder)
+	scroll:SetPoint("TOPLEFT", 8, -6)
+	scroll:SetPoint("BOTTOMRIGHT", -(BAR_W + 8), 6)
+	local box = CreateFrame("EditBox", nil, scroll)
+	box:SetMultiLine(true)
+	box:SetAutoFocus(false)
+	box:SetWidth(width - BAR_W - 16)
+	U.SetFont(box, T.fontSmall + 1)
+	box:SetTextColor(rgba(T.text))
+	box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+	scroll:SetScrollChild(box)
+
+	local track, update, setScroll = AttachScrollBar(scroll, box, holder, 30, function() return box:HasFocus() end)
+	track:SetPoint("TOPRIGHT", -3, -3)
+	track:SetPoint("BOTTOMRIGHT", -3, 3)
+	-- keep the line you are typing on in view (the box grows a moment after the cursor moves)
+	local want
+	box:SetScript("OnCursorChanged", function(_, _, y, _, h)
+		y = -y
+		local top = scroll:GetVerticalScroll()
+		if y < top then want = y
+		elseif y + h > top + scroll:GetHeight() then want = y + h - scroll:GetHeight()
+		else want = nil return end
+		setScroll(want)
+		if math.abs(scroll:GetVerticalScroll() - want) < 1 then want = nil end
+	end)
+	box:HookScript("OnSizeChanged", function()
+		update()
+		if want then setScroll(want); want = nil end
+	end)
+	scroll:SetScript("OnSizeChanged", update)
+
+	holder:EnableMouse(true)
+	holder:SetScript("OnMouseDown", function() box:SetFocus() end)
+	holder.box = box
+	holder.track = track
+	return holder
+end
+
+------------------------------------------------------------------------
+-- Scrollable page body
+------------------------------------------------------------------------
+-- The bar takes the right edge of `parent`: build the page about 24 px narrower than it.
+function W.ScrollPage(parent)
+	local scroll = CreateFrame("ScrollFrame", nil, parent)
+	scroll:SetPoint("TOPLEFT")
+	scroll:SetPoint("BOTTOMRIGHT", -(BAR_W + 6), 0)
+	local child = CreateFrame("Frame", nil, scroll)
+	child:SetSize(1, 1)
+	scroll:SetScrollChild(child)
+
+	local track, update = AttachScrollBar(scroll, child, parent, PAGE_STEP)
+	track:SetPoint("TOPRIGHT", -3, -2)
+	track:SetPoint("BOTTOMRIGHT", -3, 2)
+
 	scroll:SetScript("OnSizeChanged", function(_, w)
 		child:SetWidth(w)
 		update()
 	end)
 	-- the bar sits outside the scroll area (beside it), so it follows the page's visibility by hand
 	scroll:SetScript("OnShow", update)
-	scroll:SetScript("OnHide", function() thumb.dragging = nil; track:Hide() end)
+	scroll:SetScript("OnHide", function() track:Hide() end)
 	child:SetScript("OnSizeChanged", update)
 	scroll.child = child
 	scroll.track = track
