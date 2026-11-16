@@ -151,7 +151,7 @@ local function IconInit(size, swipe, stacks)
 end
 
 -- Raid buff icons sit outside the frame, so they never block click-casting: they always take the mouse (tooltip
--- with the time left) and show the time left as a thin bar under the icon.
+-- with the time left) and a clock sweep for the time left.
 local function RaidBuffInit(size)
 	return function(b)
 		b:SetSize(size, size)
@@ -167,21 +167,7 @@ local function RaidBuffInit(size)
 		icon:SetAllPoints()
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		b:SetIcon(icon)
-		if b.SetDurationBar then
-			-- time left as a thin bar under the icon (hover for the exact time): text doesn't fit at this size
-			local bar = CreateFrame("StatusBar", nil, b)
-			bar:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, -2)
-			bar:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, -2)
-			bar:SetHeight(2)
-			bar:SetStatusBarTexture(U.WHITE)
-			bar:SetStatusBarColor(0.95, 0.80, 0.30, 1)
-			local back = bar:CreateTexture(nil, "BACKGROUND")
-			back:SetPoint("TOPLEFT", -1, 1)
-			back:SetPoint("BOTTOMRIGHT", 1, -1)
-			back:SetColorTexture(0, 0, 0, 0.8)
-			local dir = Enum.StatusBarTimerDirection and Enum.StatusBarTimerDirection.RemainingTime or nil
-			pcall(b.SetDurationBar, b, bar, dir and { direction = dir } or nil)
-		end
+		AddCooldown(b, true) -- clock sweep over the icon: how much of the buff is used up
 	end
 end
 
