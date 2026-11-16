@@ -150,6 +150,25 @@ local function IconInit(size, swipe, stacks)
 	end
 end
 
+-- "54m", "2h", "40s": one unit, no space, so it fits under an 18px icon. nil if the client lacks the API.
+local shortFormatter
+local function ShortDurationFormatter()
+	if shortFormatter ~= nil then return shortFormatter or nil end
+	shortFormatter = false
+	pcall(function()
+		local E = Enum
+		local f = C_StringUtil.CreateSecondsFormatter()
+		f:SetDefaultAbbreviation(E.SecondsFormatterAbbreviation.OneLetter)
+		f:SetRounding(E.SecondsFormatterRounding.Truncate)
+		f:SetCanRoundUpLastUnit(true)
+		f:SetMinInterval(E.SecondsFormatterInterval.Seconds)
+		f:SetDesiredUnitCount(1)
+		f:SetStripIntervalWhitespace(E.SecondsFormatterIntervalWhitespace.StripIgnoreLocale)
+		shortFormatter = f
+	end)
+	return shortFormatter or nil
+end
+
 -- Raid buff icons sit outside the frame, so they never block click-casting: they always take the mouse (tooltip
 -- with the time left) and show the time left under the icon.
 local function RaidBuffInit(size)
@@ -168,10 +187,16 @@ local function RaidBuffInit(size)
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		b:SetIcon(icon)
 		if b.SetDurationText then
+			-- fixed box the icon's width, one line, so the text never spills onto the next icon or shifts
 			local t = b:CreateFontString(nil, "OVERLAY")
 			U.SetFont(t, math.max(8, math.floor(size * 0.5)), "OUTLINE")
-			t:SetPoint("TOP", b, "BOTTOM", 1, -1)
-			pcall(b.SetDurationText, b, t)
+			t:SetPoint("TOP", b, "BOTTOM", 0, -1)
+			t:SetWidth(size + 2)
+			t:SetJustifyH("CENTER")
+			t:SetWordWrap(false)
+			t:SetNonSpaceWrap(false)
+			local f = ShortDurationFormatter()
+			pcall(b.SetDurationText, b, t, f and { textFormatter = f } or nil)
 		end
 	end
 end
