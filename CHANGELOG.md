@@ -1,6 +1,6 @@
 # Lattice Party & Raid Frames
 
-## Unreleased
+## v0.5.0 (2026-11-16)
 
 - Settings window: a proper scroll bar you can grab and drag, or click above or below it to jump a page. The mouse wheel no longer changes sliders, so scrolling down the page never changes a setting by accident. Type a number in the box beside a slider for exact values.
 - Tank frames: in raids, each tank gets a frame in a small block of its own, with what that tank is targeting beside it (red hostile, yellow neutral). Uses assigned roles and Lattice's tank guess, so it works with no roles set. Unlock frames to move it. General page: on/off, targets on/off, also in a party.
