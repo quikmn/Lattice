@@ -4,13 +4,21 @@ local Bind = O.Bind
 
 local GROW_ITEMS = { { value = "RIGHT", text = "Right" }, { value = "LEFT", text = "Left" }, { value = "UP", text = "Up" }, { value = "DOWN", text = "Down" } }
 
-local function Pos(s, prefix, withGrow)
-	W.Dropdown(s, Bind(prefix .. ".point", "auras", { label = "Position", items = O.POINT_ITEMS }))
+local function Pos(s, prefix, withGrow, disabled)
+	W.Dropdown(s, Bind(prefix .. ".point", "auras", { label = "Position", items = O.POINT_ITEMS, disabled = disabled }))
 	if withGrow then
-		W.Dropdown(s, Bind(prefix .. ".grow", "auras", { label = "Grow towards", items = GROW_ITEMS }))
+		W.Dropdown(s, Bind(prefix .. ".grow", "auras", { label = "Grow towards", items = GROW_ITEMS, disabled = disabled }))
 	end
-	W.Slider(s, Bind(prefix .. ".x", "auras", { label = "Nudge left / right", min = -30, max = 30, step = 1 }))
-	W.Slider(s, Bind(prefix .. ".y", "auras", { label = "Nudge down / up", min = -30, max = 30, step = 1 }))
+	W.Slider(s, Bind(prefix .. ".x", "auras", { label = "Nudge left / right", min = -30, max = 30, step = 1, disabled = disabled }))
+	W.Slider(s, Bind(prefix .. ".y", "auras", { label = "Nudge down / up", min = -30, max = 30, step = 1, disabled = disabled }))
+end
+
+-- Greys out a section's settings while auras, or that section, are turned off.
+local function Off(section)
+	return function()
+		local D = ns.db.auras
+		return not D.enabled or (section and not U.Get(D, section)) or false
+	end
 end
 
 local function IndicatorEditor(s, index)
@@ -19,21 +27,26 @@ local function IndicatorEditor(s, index)
 	local base = "auras.indicators." .. index
 	local names = {}
 	for _, id in ipairs(ind.spells) do names[#names + 1] = tostring(id) end
-	W.Header(s, ind.name or ("Indicator " .. index), "Spell IDs: " .. table.concat(names, ", "))
-	W.Toggle(s, Bind(base .. ".enabled", "auras", { label = "Enabled" }))
-	W.Toggle(s, Bind(base .. ".mine", "auras", { label = "Only when cast by me" }))
+	local sub = "Spell IDs: " .. table.concat(names, ", ") .. (ind.harmful and " (a debuff, from anyone)" or "")
+	W.Header(s, ind.name or ("Indicator " .. index), sub)
+	local off = function() return not ns.db.auras.enabled or ind.enabled == false end
+	W.Toggle(s, Bind(base .. ".enabled", "auras", { label = "Show this indicator", disabled = function() return not ns.db.auras.enabled end }))
+	if not ind.harmful then
+		W.Toggle(s, Bind(base .. ".mine", "auras", { label = "Only when cast by me", disabled = off }))
+	end
 	W.Dropdown(s, Bind(base .. ".style", "auras", {
 		label = "Style", items = { { value = "square", text = "Colored square" }, { value = "icon", text = "Spell icon" } },
+		disabled = off,
 	}))
-	W.Color(s, Bind(base .. ".color", "auras", { label = "Square color" }))
-	W.Slider(s, Bind(base .. ".size", "auras", { label = "Size", min = 4, max = 30, step = 1 }))
-	W.Toggle(s, Bind(base .. ".swipe", "auras", { label = "Show time left as a swipe" }))
-	Pos(s, base, false)
-	local del = W.Button(nil, "Remove indicator", function()
+	W.Color(s, Bind(base .. ".color", "auras", { label = "Square color", disabled = function() return off() or ind.style == "icon" end }))
+	W.Slider(s, Bind(base .. ".size", "auras", { label = "Size", min = 4, max = 30, step = 1, disabled = off }))
+	W.Toggle(s, Bind(base .. ".swipe", "auras", { label = "Show time left as a swipe", disabled = off }))
+	Pos(s, base, false, off)
+	local del = W.ConfirmButton(nil, "Remove indicator", function()
 		table.remove(ns.db.auras.indicators, index)
 		ns.Auras:Refresh()
 		O:RebuildPage("auras")
-	end, 160, "danger")
+	end, 180)
 	s:Add(del, 26)
 end
 
@@ -92,58 +105,99 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Toggle(s, Bind("auras.tooltips", "auras", {
 		label = "Aura tooltips on mouseover",
 		desc = "When on, aura icons catch the mouse, so clicking an icon won't click-cast on that player.",
+		disabled = Off(),
+	}))
+	W.Toggle(s, Bind("auras.countdown", "auras", {
+		label = "Seconds left on buff and debuff icons",
+		desc = "Numbers counting down on the icons. Raid buffs keep just the clock sweep.",
+		disabled = Off(),
 	}))
 
-	W.Header(s, "Dispel highlight", "Colors the frame when a player has a debuff you can remove.")
-	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Highlight dispellable debuffs" }))
-	W.Toggle(s, Bind("auras.dispel.onlyMine", "auras", { label = "Only debuffs I can dispel myself" }))
+	W.Header(s, "Dispel highlight", "Shows when a player has a debuff that can be removed.")
+	local noDispel = function() local D = ns.db.auras; return not D.enabled or not D.dispel.enabled end
+	local noDispelAny = function() local D = ns.db.auras; return not D.enabled or not (D.dispel.enabled or D.dispel.icon) end
+	local noIcon = Off("dispel.icon")
+	W.Toggle(s, Bind("auras.dispel.onlyMine", "auras", {
+		label = "Only debuffs I can remove myself",
+		desc = "Off: also debuffs someone else in the group can remove.",
+		disabled = noDispelAny,
+	}))
 	W.Toggle(s, Bind("auras.dispel.icon", "auras", {
 		label = "Big icon in the middle of the frame",
-		desc = "The debuff you can dispel, large, edged in its type's colour (blue Magic, purple Curse, green Poison, brown Disease).",
+		desc = "The debuff itself, large, edged in its type's color (blue Magic, purple Curse, green Poison, brown Disease).",
+		disabled = Off(),
 	}))
-	W.Toggle(s, Bind("auras.dispel.iconPulse", "auras", {
-		label = "Pulse around the big icon",
-		disabled = function() return not ns.db.auras.dispel.icon end,
-	}))
-	W.Slider(s, Bind("auras.dispel.iconSize", "auras", {
-		label = "Big icon size", min = 14, max = 40, step = 1,
-		disabled = function() return not ns.db.auras.dispel.icon end,
-	}))
+	W.Toggle(s, Bind("auras.dispel.iconPulse", "auras", { label = "Pulse around the big icon", disabled = noIcon }))
+	W.Slider(s, Bind("auras.dispel.iconSize", "auras", { label = "Big icon size", min = 14, max = 40, step = 1, disabled = noIcon }))
+	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Color the frame too", disabled = Off() }))
 	W.Dropdown(s, Bind("auras.dispel.style", "auras", {
-		label = "Style",
+		label = "How",
 		items = { { value = "border", text = "Colored border" }, { value = "both", text = "Border and a light tint" },
-			{ value = "overlay", text = "Tint the whole frame" }, { value = "icon", text = "Small icon" } },
+			{ value = "overlay", text = "Tint the whole frame" }, { value = "icon", text = "Small square in the corner" } },
+		disabled = noDispel,
 	}))
-	W.Slider(s, Bind("auras.dispel.thickness", "auras", { label = "Border thickness", min = 1, max = 5, step = 1 }))
+	W.Slider(s, Bind("auras.dispel.thickness", "auras", {
+		label = "Border thickness", min = 1, max = 5, step = 1,
+		disabled = function()
+			local st = ns.db.auras.dispel.style
+			return noDispel() or (st ~= "border" and st ~= "both")
+		end,
+	}))
+	-- Bleed can't be removed in Classic, so its color isn't offered.
 	for _, t in ipairs(ns.Auras.DISPEL_TYPES) do
-		W.Color(s, Bind("auras.dispel.colors." .. t, "auras", { label = t }))
+		if t ~= "Bleed" then
+			W.Color(s, Bind("auras.dispel.colors." .. t, "auras", { label = t .. " color", disabled = noDispelAny }))
+		end
 	end
 
 	W.Header(s, "Debuffs")
-	W.Toggle(s, Bind("auras.debuffs.enabled", "auras", { label = "Show debuff icons" }))
-	W.Toggle(s, Bind("auras.debuffs.onlyDispellable", "auras", { label = "Only dispellable debuffs" }))
-	W.Slider(s, Bind("auras.debuffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1 }))
-	W.Toggle(s, Bind("auras.debuffs.hideLong", "auras", { label = "Hide long debuffs nobody can dispel (over 10 min, like Boosted Rest)" }))
-	W.Slider(s, Bind("auras.debuffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
-	W.Toggle(s, Bind("auras.debuffs.swipe", "auras", { label = "Time left swipe" }))
-	W.Toggle(s, Bind("auras.debuffs.stacks", "auras", { label = "Stack count" }))
-	Pos(s, "auras.debuffs", true)
-
-	W.Header(s, "My buffs and HoTs")
-	W.Toggle(s, Bind("auras.buffs.enabled", "auras", { label = "Show buff icons" }))
-	W.Dropdown(s, Bind("auras.buffs.source", "auras", {
-		label = "Which buffs",
-		items = { { value = "mine", text = "Mine only (HoTs, shields)" }, { value = "all", text = "Everyone's raid buffs" } },
+	local noDebuffs = Off("debuffs.enabled")
+	W.Toggle(s, Bind("auras.debuffs.enabled", "auras", { label = "Show debuff icons", disabled = Off() }))
+	W.Toggle(s, Bind("auras.debuffs.onlyDispellable", "auras", { label = "Only debuffs that can be removed", disabled = noDebuffs }))
+	W.Toggle(s, Bind("auras.debuffs.hideLong", "auras", {
+		label = "Hide long debuffs nobody can remove",
+		desc = "Over 10 minutes, like Boosted Rest. Magic, curses, poisons and diseases always show.",
+		disabled = noDebuffs,
 	}))
-	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", { label = "Hide other long buffs (over 5 min)" }))
-	W.Slider(s, Bind("auras.buffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1 }))
-	W.Slider(s, Bind("auras.buffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
-	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left swipe" }))
-	Pos(s, "auras.buffs", true)
+	W.Slider(s, Bind("auras.debuffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1, disabled = noDebuffs }))
+	W.Slider(s, Bind("auras.debuffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noDebuffs }))
+	W.Toggle(s, Bind("auras.debuffs.swipe", "auras", { label = "Time left as a swipe", disabled = noDebuffs }))
+	W.Toggle(s, Bind("auras.debuffs.stacks", "auras", { label = "Stack count", disabled = noDebuffs }))
+	Pos(s, "auras.debuffs", true, noDebuffs)
+
+	W.Header(s, "Buffs", "Your HoTs and shields, on the frame.")
+	local noBuffs = Off("buffs.enabled")
+	W.Toggle(s, Bind("auras.buffs.enabled", "auras", { label = "Show buff icons", disabled = Off() }))
+	W.Dropdown(s, Bind("auras.buffs.source", "auras", {
+		label = "Whose buffs",
+		items = { { value = "mine", text = "Mine only (HoTs, shields)" }, { value = "all", text = "Anyone's" } },
+		disabled = noBuffs,
+	}))
+	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", {
+		label = "Hide long buffs (over 5 minutes)",
+		desc = "Fortitude, Mark of the Wild and the like, so HoTs and shields stand out. Spells on Always show still show.",
+		disabled = noBuffs,
+	}))
+	W.Slider(s, Bind("auras.buffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1, disabled = noBuffs }))
+	W.Slider(s, Bind("auras.buffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noBuffs }))
+	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left as a swipe", disabled = noBuffs }))
+	Pos(s, "auras.buffs", true, noBuffs)
 
 	W.Header(s, "Raid buffs", "Long buffs like Fortitude and Arcane Intellect in a row beside each frame, so you can see who needs a rebuff. In a party; in a raid only if you turn it on.")
-	W.Toggle(s, Bind("auras.raidbuffs.enabled", "auras", { label = "Show raid buffs beside the frames" }))
-	local function notPick() return ns.db.auras.raidbuffs.which ~= "pick" end
+	local noRaidBuffs = Off("raidbuffs.enabled")
+	W.Toggle(s, Bind("auras.raidbuffs.enabled", "auras", { label = "Show raid buffs beside the frames", disabled = Off() }))
+	W.Toggle(s, Bind("auras.raidbuffs.inRaid", "auras", {
+		label = "Also in raids",
+		desc = "With one column per group the row can cover the next group; widen the gap between groups on the Layout page.",
+		disabled = noRaidBuffs,
+	}))
+	W.Dropdown(s, Bind("auras.raidbuffs.side", "auras", {
+		label = "Side",
+		items = { { value = "RIGHT", text = "Right of the frame" }, { value = "LEFT", text = "Left of the frame" } },
+		disabled = noRaidBuffs,
+	}))
+	W.Slider(s, Bind("auras.raidbuffs.size", "auras", { label = "Icon size", min = 8, max = 24, step = 1, disabled = noRaidBuffs }))
+	local function notPick() return noRaidBuffs() or ns.db.auras.raidbuffs.which ~= "pick" end
 	W.Dropdown(s, {
 		label = "Which buffs",
 		desc = "Only the ones I can cast: what you can rebuff yourself (all of them for classes without one).",
@@ -153,8 +207,8 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		set = function(v)
 			ns.db.auras.raidbuffs.which = v
 			ns:ApplySettings("auras")
-			O:RebuildPage("auras")
 		end,
+		disabled = noRaidBuffs,
 	})
 	for _, f in ipairs(ns.Auras.BUFF_FAMILY_INFO) do
 		W.Toggle(s, Bind("auras.raidbuffs.pick." .. f.key, "auras", {
@@ -162,26 +216,24 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		}))
 	end
 	RaidBuffExtras(s)
-	W.Dropdown(s, Bind("auras.raidbuffs.side", "auras", {
-		label = "Side",
-		items = { { value = "RIGHT", text = "Right of the frame" }, { value = "LEFT", text = "Left of the frame" } },
-	}))
-	W.Toggle(s, Bind("auras.raidbuffs.inRaid", "auras", { label = "Also in raids" }))
+
+	W.Header(s, "Missing buff mark")
 	W.Toggle(s, Bind("auras.missingBuff", "auras", {
 		label = "Mark players missing my buff",
-		desc = "Priests: Fortitude. Mages: Arcane Intellect (mana users only). Druids: Mark of the Wild. A small icon with a red edge in the corner, in parties and raids. Worked out out of combat.",
+		desc = "Priests: Fortitude. Mages: Arcane Intellect (mana users only). Druids: Mark of the Wild. A small icon with a red edge in the bottom right corner, in parties and raids. Worked out out of combat, then kept during a fight.",
 	}))
-	W.Slider(s, Bind("auras.raidbuffs.size", "auras", { label = "Icon size", min = 8, max = 24, step = 1 }))
 
-	W.Header(s, "Boss debuff", "One big icon for the most important boss or role debuff.")
-	W.Toggle(s, Bind("auras.boss.enabled", "auras", { label = "Show boss debuff" }))
-	W.Slider(s, Bind("auras.boss.size", "auras", { label = "Icon size", min = 10, max = 40, step = 1 }))
-	Pos(s, "auras.boss", false)
+	W.Header(s, "Boss debuff", "One big icon for the most important boss debuff.")
+	local noBoss = Off("boss.enabled")
+	W.Toggle(s, Bind("auras.boss.enabled", "auras", { label = "Show boss debuff", disabled = Off() }))
+	W.Slider(s, Bind("auras.boss.size", "auras", { label = "Icon size", min = 10, max = 40, step = 1, disabled = noBoss }))
+	Pos(s, "auras.boss", false, noBoss)
 
 	W.Header(s, "Big defensives", "Shield Wall, Divine Shield, Evasion, Barkskin, Blessing of Protection and similar.")
-	W.Toggle(s, Bind("auras.defensive.enabled", "auras", { label = "Show big defensive" }))
-	W.Slider(s, Bind("auras.defensive.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
-	Pos(s, "auras.defensive", false)
+	local noDef = Off("defensive.enabled")
+	W.Toggle(s, Bind("auras.defensive.enabled", "auras", { label = "Show big defensive", disabled = Off() }))
+	W.Slider(s, Bind("auras.defensive.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noDef }))
+	Pos(s, "auras.defensive", false, noDef)
 
 	-- Spell indicators
 	W.Header(s, "Spell indicators", "Grid-style markers for specific buffs, e.g. a green square in the corner while your Renew is up.")

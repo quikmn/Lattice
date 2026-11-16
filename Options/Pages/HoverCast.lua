@@ -89,13 +89,14 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	s:Add(keyRow, 46)
 
 	W.Dropdown(s, { label = "Spell (from your spellbook)", items = O.HelpfulSpells, width = 300,
+		format = CC.SpellName,
 		get = function() return draft.value end,
 		set = function(v) draft.value = v; draft.action = "spell" end })
 
 	local spellRow = CreateFrame("Frame")
 	local spellLabel = W.Text(spellRow, T.font, T.text)
 	spellLabel:SetPoint("TOPLEFT")
-	spellLabel:SetText("...or type a spell name or ID")
+	spellLabel:SetText("...or type a spell name or ID and press Enter")
 	local spellBox = W.EditBox(spellRow, 300, 24)
 	spellBox:SetPoint("TOPLEFT", 0, -18)
 	spellBox:SetScript("OnEnterPressed", function(self)

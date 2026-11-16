@@ -524,6 +524,76 @@ step("class presets add only known spells", function()
 	check(#again == 0, "presets added twice")
 end)
 
+step("class presets skip spots already used", function()
+	local realClass = UnitClass
+	wipe(ns.db.auras.indicators)
+	ns.Auras:AddIndicator("Renew", { 139 }, { point = "TOP", x = -12, y = -2 }, true)
+	UnitClass = function(u) if u == "player" then return "Paladin", "PALADIN", 2 end return realClass(u) end
+	local added = ns.Auras:AddClassPresets()
+	UnitClass = realClass
+	check(#added == 1 and added[1] == "Forbearance", "expected Forbearance, got " .. table.concat(added, ","))
+	local ind = ns.db.auras.indicators[2]
+	check(not (ind.point == "TOP" and ind.x == -12), "new preset placed on top of an existing indicator")
+	wipe(ns.db.auras.indicators)
+	ns.Auras:Refresh()
+	MOCK.RunTimers()
+end)
+
+step("low health warning", function()
+	MOCK.SetGroup(5, false)
+	MOCK.Fire("GROUP_ROSTER_UPDATE")
+	MOCK.UpdateAllHeaders()
+	MOCK.RunTimers()
+	local btn
+	for _, b in ipairs(ns.Buttons.all) do if b.unit == "party1" then btn = b break end end
+	check(btn, "no party1 button")
+	ns.db.appearance.lowHealth = true
+	ns.Buttons:UpdateAll(btn)
+	check(btn.visual.low:IsShown(), "low health layer should show")
+	ns.db.appearance.lowHealth = false
+	ns.Buttons:UpdateAll(btn)
+	check(not btn.visual.low:IsShown(), "low health layer should hide when off")
+	ns.db.appearance.lowHealth = true
+	MOCK.units.party1.dead = true
+	ns.Buttons:UpdateAll(btn)
+	check(not btn.visual.low:IsShown(), "no low health warning on the dead")
+	MOCK.units.party1.dead = false
+	ns.Buttons:UpdateAll(btn)
+	check(ns.Secret.LowHealthCurve(0.3, 0.7) == ns.Secret.LowHealthCurve(0.3, 0.7), "curve should be cached")
+end)
+
+step("countdown numbers build", function()
+	ns.db.auras.countdown = true
+	ns.Auras:Refresh()
+	MOCK.RunTimers()
+	check(ns.Auras.lastError == nil, "aura build failed: " .. tostring(ns.Auras.lastError))
+	ns.db.auras.countdown = false
+	ns.Auras:Refresh()
+	MOCK.RunTimers()
+end)
+
+step("options: dependents grey out at once, confirm buttons ask first", function()
+	local W = ns.Widgets
+	local holder = CreateFrame("Frame")
+	local s = W.Stack(holder, 400)
+	local parentOn = true
+	local parent = W.Toggle(s, { label = "Parent", get = function() return parentOn end, set = function(v) parentOn = v end })
+	local child = W.Toggle(s, { label = "Child", get = function() return false end, set = function() end,
+		disabled = function() return not parentOn end })
+	local color = W.Color(s, { label = "Color", get = function() return { 1, 1, 1, 1 } end, set = function() end,
+		disabled = function() return not parentOn end })
+	check(child:GetAlpha() == 1, "child should start enabled")
+	parent:GetScript("OnClick")(parent)
+	check(not parentOn, "parent toggle didn't change")
+	check(child:GetAlpha() < 1 and color:GetAlpha() < 1, "dependents should grey out when the parent is turned off")
+	local done = 0
+	local b = W.ConfirmButton(holder, "Delete", function() done = done + 1 end)
+	b:GetScript("OnClick")(b)
+	check(done == 0, "confirm button acted on the first click")
+	b:GetScript("OnClick")(b)
+	check(done == 1, "confirm button didn't act on the second click")
+end)
+
 step("settings upgrade from schema 1", function()
 	local sv = { schema = 1, profiles = { Default = {} }, chars = { ["A-B"] = { profile = "Default", bindings = {} } } }
 	ns.Database:Migrate(sv)

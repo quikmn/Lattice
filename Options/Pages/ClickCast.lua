@@ -39,6 +39,7 @@ local MOD_ITEMS = {
 
 O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 	W.Header(s, "Click-casting", "Click a frame to cast on that player. Bindings are saved per character.")
+	W.Note(s, "|cffffffffCtrl+Alt+Right-click|r opens Lattice's own frame menu (tank choice, aura filters) unless you bind it to something here.")
 	if InCombatLockdown() then
 		W.Note(s, "|cffffcc66You're in combat. Changes apply when combat ends.|r")
 	end
@@ -88,14 +89,16 @@ O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 	W.Dropdown(s, { label = "Action", items = CC.ACTIONS,
 		get = function() return draft.action end, set = function(v) draft.action = v end })
 
+	local notSpell = function() return draft.action ~= "spell" end
 	W.Dropdown(s, { label = "Spell (from your spellbook)", items = HelpfulSpells, width = 300,
+		format = CC.SpellName, disabled = notSpell,
 		get = function() return draft.value end,
 		set = function(v) draft.value = v; draft.action = "spell"; s:RefreshAll() end })
 
 	local spellRow = CreateFrame("Frame")
 	local spellLabel = W.Text(spellRow, T.font, T.text)
 	spellLabel:SetPoint("TOPLEFT")
-	spellLabel:SetText("...or type a spell name or ID")
+	spellLabel:SetText("...or type a spell name or ID and press Enter")
 	local spellBox = W.EditBox(spellRow, 300, 24)
 	spellBox:SetPoint("TOPLEFT", 0, -18)
 	spellBox:SetScript("OnEnterPressed", function(self)
@@ -112,7 +115,7 @@ O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 	local macroRow = CreateFrame("Frame")
 	local macroLabel = W.Text(macroRow, T.font, T.text)
 	macroLabel:SetPoint("TOPLEFT")
-	macroLabel:SetText("Macro text (for 'Run macro'; use @mouseover to target the frame)")
+	macroLabel:SetText("Macro text, for Run macro (@mouseover is the player you clicked)")
 	local macro = W.TextArea(macroRow, 420, 60)
 	macro:SetPoint("TOPLEFT", 0, -18)
 	macro.box:SetScript("OnTextChanged", function(self) draft.macro = self:GetText() end)

@@ -25,14 +25,20 @@ local function InputRow(s, label, buttonText, onSubmit, style)
 	return box
 end
 
+-- Switching profiles rebuilds every page, this one too: a message said just before it is shown on the new page.
+local lastMsg
+
 O:RegisterPage("profiles", "Profiles", nil, function(s)
 	local msg
 
-	local function say(text, ok)
-		msg.text:SetText((ok and "|cff62cf88" or "|cffef5d5d") .. text .. "|r")
+	-- carry: the page is about to be rebuilt, so show the message on the new one too
+	local function say(text, ok, carry)
+		local t = (ok and "|cff62cf88" or "|cffef5d5d") .. text .. "|r"
+		msg.text:SetText(t)
+		lastMsg = carry and t or nil
 	end
 
-	W.Header(s, "Profiles", "A profile holds all settings except click-casting (that's per character). Characters can share one.")
+	W.Header(s, "Profiles", "A profile holds all settings except click-casting and hover-casting (those are per character). Characters can share one.")
 	W.Dropdown(s, {
 		label = "Active profile",
 		items = ProfileItems,
@@ -40,11 +46,11 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 		set = function(v) P:Switch(v) end,
 	})
 
-	InputRow(s, "New profile", "Create", function(name, box)
+	InputRow(s, "New profile with default settings", "Create", function(name, box)
 		if P:Create(name, nil) then
 			box:SetText("")
+			say("Created and switched to " .. name .. ".", true, true)
 			P:Switch(name)
-			say("Created and switched to " .. name .. ".", true)
 		else
 			say("Pick a name that isn't used yet.")
 		end
@@ -52,7 +58,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	InputRow(s, "Copy the active profile as", "Copy", function(name, box)
 		if P:Create(name, ns.Database:ActiveName()) then
 			box:SetText("")
-			say("Copied to " .. name .. ".", true)
+			say("Copied to " .. name .. ". You're still using " .. ns.Database:ActiveName() .. ".", true, true)
 			O:RebuildPage("profiles")
 		else
 			say("Pick a name that isn't used yet.")
@@ -61,6 +67,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	InputRow(s, "Rename the active profile to", "Rename", function(name, box)
 		if P:Rename(ns.Database:ActiveName(), name) then
 			box:SetText("")
+			say("Renamed to " .. name .. ".", true, true)
 			O:RebuildPage("profiles")
 		else
 			say("Pick a name that isn't used yet.")
@@ -68,11 +75,17 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	end)
 
 	local row = CreateFrame("Frame")
-	local reset = W.Button(row, "Reset active profile to defaults", function() P:Reset(); say("Profile reset.", true) end, 230)
+	local reset = W.ConfirmButton(row, "Reset active profile to defaults", function()
+		say("Profile reset.", true, true)
+		P:Reset()
+	end, 240)
 	reset:SetPoint("LEFT")
 	s:Add(row, 26)
+
+	-- Delete: pick a profile, then confirm with the button.
+	local toDelete
 	W.Dropdown(s, {
-		label = "Delete profile (can't delete the active one)",
+		label = "Delete a profile (not the active one)",
 		items = function()
 			local items = {}
 			for _, name in ipairs(P:List()) do
@@ -81,11 +94,21 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 			if #items == 0 then items[1] = { value = false, text = "(no other profiles)" } end
 			return items
 		end,
-		get = function() return false end,
-		set = function(v)
-			if v and P:Delete(v) then say("Deleted " .. v .. ".", true) end
-		end,
+		placeholder = "Choose a profile...",
+		get = function() return toDelete end,
+		set = function(v) toDelete = v or nil end,
 	})
+	local delRow = CreateFrame("Frame")
+	local del = W.ConfirmButton(delRow, "Delete it", function()
+		if toDelete and P:Delete(toDelete) then
+			say("Deleted " .. toDelete .. ".", true, true)
+			O:RebuildPage("profiles")
+		else
+			say("Choose a profile to delete first.")
+		end
+	end, 140)
+	del:SetPoint("LEFT")
+	s:Add(delRow, 26)
 
 	-- Spec switching
 	if P:HasSpecs() then
@@ -108,12 +131,14 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	end
 
 	-- Import / export
-	W.Header(s, "Share", "Your whole setup as one string: layout, positions, sizes, colours, auras, indicators and filters. Send it to a friend, or paste someone's string to use their setup.")
+	W.Header(s, "Share", "Your whole setup as one string: layout, positions, sizes, colors, auras, indicators and filters. Send it to a friend, or paste someone's string to use their setup.")
 	local area = W.TextArea(nil, 520, 90)
 	s:Add(area, 90)
 	local withCasting, takeCasting = false, false
+
+	W.Note(s, "|cffffffffExport|r: the string appears in the box above.")
 	W.Toggle(s, {
-		label = "Include my click-casting",
+		label = "Include my click-casting and hover-casting",
 		desc = "Only players of your class can take it.",
 		get = function() return withCasting end,
 		set = function(v) withCasting = v end,
@@ -132,24 +157,28 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	end, 170)
 	exp:SetPoint("LEFT")
 	s:Add(ioRow, 26)
+
+	W.Note(s, "|cffffffffImport|r: paste a string into the box above. It becomes a new profile and is used straight away; your current profile stays in the list.")
 	W.Toggle(s, {
-		label = "Also take their click-casting",
-		desc = "Replaces your click-casting with theirs, if the string has some for your class.",
+		label = "Also take their click-casting and hover-casting",
+		desc = "Replaces yours with theirs, if the string has some for your class.",
 		get = function() return takeCasting end,
 		set = function(v) takeCasting = v end,
 	})
-	local before = ns.Database:ActiveName()
-	InputRow(s, "Paste a string above, then import it (name optional)", "Import and use", function(name, box)
-		before = ns.Database:ActiveName()
+	InputRow(s, "Name for the new profile (optional)", "Import and use", function(name, box)
+		local before = ns.Database:ActiveName()
 		local ok, result, note = P:Import(area.box:GetText(), name, takeCasting)
 		if ok then
 			box:SetText("")
 			area.box:SetText("")
-			say("Now using " .. result .. ". Your old profile, " .. before .. ", is still under Active profile." .. (note and (" " .. note) or ""), true)
+			say("Now using " .. result .. ". Your old profile, " .. before .. ", is still under Active profile." .. (note and (" " .. note) or ""), true, true)
+			O:RebuildPage("profiles")
 		else
 			say(result)
 		end
 	end, "accent")
 
 	msg = W.Note(s, " ")
+	if lastMsg then msg.text:SetText(lastMsg) end
+	lastMsg = nil
 end)

@@ -127,6 +127,27 @@ function W.Button(parent, label, onClick, width, style)
 	return b
 end
 
+-- A button for something that can't be undone: the first click asks, a second click within 4 seconds does it.
+function W.ConfirmButton(parent, label, onConfirm, width, style)
+	local b
+	local armed = false
+	b = W.Button(parent, label, function(self, ...)
+		if not armed then
+			armed = true
+			self:SetText("Click again to confirm")
+			C_Timer.After(4, function()
+				if armed then armed = false; b:SetText(label) end
+			end)
+			return
+		end
+		armed = false
+		self:SetText(label)
+		onConfirm(self, ...)
+	end, width, style or "danger")
+	b:HookScript("OnHide", function() if armed then armed = false; b:SetText(label) end end)
+	return b
+end
+
 ------------------------------------------------------------------------
 -- Toggle (switch)
 ------------------------------------------------------------------------
@@ -166,7 +187,7 @@ function W.Toggle(stack, opt)
 	end
 	f:SetScript("OnClick", function()
 		opt.set(not opt.get())
-		f:Refresh()
+		stack:RefreshAll() -- settings that depend on this one grey out or come back at once
 		if opt.after then opt.after() end
 	end)
 	Tooltip(f, opt.label, opt.desc)
@@ -377,7 +398,7 @@ function W.Dropdown(stack, opt)
 
 	function f:Refresh()
 		local cur = opt.get()
-		local shown = cur == nil and (opt.placeholder or "Choose...") or tostring(cur)
+		local shown = cur == nil and (opt.placeholder or "Choose...") or (opt.format and opt.format(cur)) or tostring(cur)
 		for _, it in ipairs(items()) do
 			if it.value == cur then shown = it.text break end
 		end
@@ -389,7 +410,7 @@ function W.Dropdown(stack, opt)
 	b:SetScript("OnClick", function()
 		OpenPopup(b, items(), opt.get(), function(v)
 			opt.set(v)
-			f:Refresh()
+			stack:RefreshAll()
 			if opt.after then opt.after() end
 		end)
 	end)
@@ -417,6 +438,9 @@ function W.Color(stack, opt)
 	function f:Refresh()
 		local c = opt.get() or { 1, 1, 1, 1 }
 		fill:SetVertexColor(c[1], c[2], c[3], c[4] or 1)
+		local enabled = not opt.disabled or not opt.disabled()
+		f:SetAlpha(enabled and 1 or 0.4)
+		f:EnableMouse(enabled)
 	end
 
 	f:SetScript("OnClick", function()
