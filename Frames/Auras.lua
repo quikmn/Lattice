@@ -30,6 +30,9 @@ ns.Defaults.auras = {
 	buffs   = { enabled = true, max = 3, size = 14, point = "TOPRIGHT", x = -2, y = -2, grow = "LEFT",
 		source = "mine", swipe = true, stacks = true,  -- mine = my HoTs/buffs, all = raid buffs
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
+	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
+	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
+	raidbuffs = { enabled = true, side = "RIGHT", size = 14, max = 6, inRaid = false },
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
 	dispel  = { enabled = true, style = "border", onlyMine = true, thickness = 2,
@@ -290,6 +293,30 @@ for _, id in ipairs({
 A.BIG_DEFENSIVES = BIG_DEFENSIVES
 local LONG_DEBUFF = 600
 
+-- The long class buffs, every rank in the Forever client (EverlookDB spells table: Fortitude, Prayer of Fortitude,
+-- Divine Spirit, Prayer of Spirit, Shadow Protection, Prayer of Shadow Protection, Mark and Gift of the Wild, Arcane
+-- Intellect and Brilliance, the Blessings and Greater Blessings; item and NPC versions included).
+local RAID_BUFFS = {}
+for _, id in ipairs({
+	1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, -- Power Word: Fortitude
+	21562, 21564, 450086, -- Prayer of Fortitude
+	14752, 14818, 14819, 16875, 27841, 27681, -- Divine Spirit, Prayer of Spirit
+	976, 977, 1279, 7235, 7241, 7242, 7243, 7244, 10957, 10958, 16874, 17548, 27683, -- Shadow Protection, Prayer of
+	1126, 5232, 5234, 5286, 5287, 6756, 8907, 8908, 9884, 9885, 16878, 24752, 364163, 1291335, 1310503, -- Mark of the Wild
+	21849, 21850, -- Gift of the Wild
+	1459, 1460, 1461, 10156, 10157, 13326, 16876, 364161, 23028, -- Arcane Intellect, Arcane Brilliance
+	19740, 19834, 19835, 19836, 19837, 19838, 25291, 25782, 25916, -- Blessing of Might, Greater
+	19742, 19850, 19852, 19853, 19854, 25290, 25894, 25918, -- Blessing of Wisdom, Greater
+	20217, 1213408, 25898, 26650, -- Blessing of Kings, Greater, Blessing of Light
+}) do RAID_BUFFS[id] = true end
+A.RAID_BUFFS = RAID_BUFFS
+
+-- The raid buff row shows in a party (and solo); in a raid only when asked to.
+function A.RaidBuffsShown()
+	local cfg = ns.db.auras.raidbuffs
+	return cfg and cfg.enabled and (cfg.inRaid or not IsInRaid()) and true or false
+end
+
 local function AddGroupContainer(btn, key, filter, cfg, init, sortMethod, lists, listedFilter, mainExtra)
 	local c = NewContainer(btn)
 	c:ClearAllPoints()
@@ -474,14 +501,38 @@ function A:BuildContainers(btn)
 		set[#set + 1] = c
 	end
 
+	if D.raidbuffs and D.raidbuffs.enabled then
+		local cfg = D.raidbuffs
+		local c = NewContainer(btn)
+		c:ClearAllPoints()
+		local left = cfg.side == "LEFT"
+		if left then c:SetPoint("TOPRIGHT", btn, "TOPLEFT", -2, 0) else c:SetPoint("TOPLEFT", btn, "TOPRIGHT", 2, 0) end
+		ConfigureFlow(c, left and "TOPRIGHT" or "TOPLEFT", left and "LEFT" or "RIGHT")
+		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, IconInit(cfg.size, false, false), AuraContainerSortMethod.Default,
+			hidden({ includeSpellIDs = RAID_BUFFS }), 1)
+		c:SetShown(A.RaidBuffsShown())
+		btn.raidBuffs = c
+		set[#set + 1] = c
+	else
+		btn.raidBuffs = nil
+	end
+
 	if D.buffs.enabled then
 		local cfg = D.buffs
 		-- RAID_IN_COMBAT relies on a per-spell "show on raid frames" flag that classic-era
 		-- spells (Renew, Rejuvenation) may not carry on Forever, so it hid them.
 		local filter = cfg.source == "all" and "HELPFUL" or "HELPFUL|PLAYER"
 		-- long buffs (30-minute raid buffs) hidden by default; the "always show" list still shows them
+		-- the raid buff row has those: keep them out of this row while it shows
+		local own = lists
+		if D.raidbuffs and D.raidbuffs.enabled then
+			local skip = {}
+			for id in pairs(lists.skip or {}) do skip[id] = true end
+			for id in pairs(RAID_BUFFS) do skip[id] = true end
+			own = { show = lists.show, hide = lists.hide, skip = skip }
+		end
 		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks),
-			AuraContainerSortMethod.ExpirationOnly, lists, "HELPFUL", cfg.hideLong and { maxDuration = LONG_BUFF } or nil)
+			AuraContainerSortMethod.ExpirationOnly, own, "HELPFUL", cfg.hideLong and { maxDuration = LONG_BUFF } or nil)
 	end
 
 	-- One container for all manually-anchored slots.
@@ -623,6 +674,15 @@ function A:Refresh()
 		if ns.TestMode then ns.TestMode:Relayout() end
 	end)
 end
+
+-- Joining or leaving a raid shows or hides the raid buff rows (plain frames: fine in combat too).
+ns:RegisterEvent("GROUP_ROSTER_UPDATE", function()
+	if not ns.Buttons then return end
+	local shown = A.RaidBuffsShown()
+	for _, btn in ipairs(ns.Buttons.all) do
+		if btn.raidBuffs then btn.raidBuffs:SetShown(shown) end
+	end
+end)
 
 -- Buttons that got a player during combat build their containers afterwards.
 ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()

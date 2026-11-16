@@ -21,6 +21,10 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Profiles per spec, import and export.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
+## Unreleased
+
+- Raid buffs get their own row beside each frame: Fortitude, Mark of the Wild, Arcane Intellect, the Blessings and the like, from anyone, so you can see at a glance who is missing yours. Pick the left or right side of the frame. It shows in a party and solo; in a raid only if you turn on "Also in raids" (Auras page). The buff icons on the frame keep your HoTs and shields.
+
 ## 0.4.6 (2026-11-15)
 
 - The big defensive icon only shows real defensives (Shield Wall, Last Stand, Evasion, Divine Shield and Protection, Blessing of Protection, Ice Block, Deterrence, Barkskin, Frenzied Regeneration). Before, ordinary buffs like Arcane Intellect or Find Herbs could show there.

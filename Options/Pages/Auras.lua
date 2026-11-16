@@ -75,11 +75,20 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		label = "Which buffs",
 		items = { { value = "mine", text = "Mine only (HoTs, shields)" }, { value = "all", text = "Everyone's raid buffs" } },
 	}))
-	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", { label = "Hide long buffs (over 5 min, like Fortitude)" }))
+	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", { label = "Hide other long buffs (over 5 min)" }))
 	W.Slider(s, Bind("auras.buffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1 }))
 	W.Slider(s, Bind("auras.buffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1 }))
 	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left swipe" }))
 	Pos(s, "auras.buffs", true)
+
+	W.Header(s, "Raid buffs", "Fortitude, Mark of the Wild, Arcane Intellect, Blessings and the like, from anyone, in a row beside each frame. In a party; in a raid only if you turn it on.")
+	W.Toggle(s, Bind("auras.raidbuffs.enabled", "auras", { label = "Show raid buffs beside the frames" }))
+	W.Dropdown(s, Bind("auras.raidbuffs.side", "auras", {
+		label = "Side",
+		items = { { value = "RIGHT", text = "Right of the frame" }, { value = "LEFT", text = "Left of the frame" } },
+	}))
+	W.Toggle(s, Bind("auras.raidbuffs.inRaid", "auras", { label = "Also in raids" }))
+	W.Slider(s, Bind("auras.raidbuffs.size", "auras", { label = "Icon size", min = 8, max = 24, step = 1 }))
 
 	W.Header(s, "Boss debuff", "One big icon for the most important boss or role debuff.")
 	W.Toggle(s, Bind("auras.boss.enabled", "auras", { label = "Show boss debuff" }))
