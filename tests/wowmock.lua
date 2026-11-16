@@ -343,6 +343,22 @@ ColorPickerFrame = newWidget("Frame", "ColorPickerFrame")
 GameFontHighlightSmall = newWidget("Font", "GameFontHighlightSmall")
 GameFontNormal = newWidget("Font", "GameFontNormal")
 UISpecialFrames = {}
+StaticPopupDialogs = {}
+MOCK.popups = {}
+function StaticPopup_Show(which)
+	local info = StaticPopupDialogs[which]
+	if not info then return end
+	local dialog = newWidget("Frame", nil, UIParent)
+	dialog.EditBox = newWidget("EditBox", nil, dialog)
+	MOCK.popups[which] = dialog
+	if info.OnShow then info.OnShow(dialog) end
+	return dialog
+end
+function StaticPopup_Hide(which)
+	local d = MOCK.popups[which]
+	if d then d:Hide() end
+	MOCK.popups[which] = nil
+end
 STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
 CompactRaidFrameContainer = newWidget("Frame", "CompactRaidFrameContainer")
 CompactPartyFrame = newWidget("Frame", "CompactPartyFrame")

@@ -1,5 +1,9 @@
 # Lattice Party & Raid Frames
 
+## Unreleased
+
+- `/lattice feedback` and a Feedback button in the settings window show a link for reporting bugs and ideas.
+
 ## v0.5.1 (2026-11-16)
 
 - Debuffs you can dispel are easy to spot: a big icon of the debuff in the middle of the frame, edged in its type's colour (blue Magic, purple Curse, green Poison, brown Disease), with a soft pulse around it. Works in combat. Size, pulse and on/off under Dispel highlight (Auras page).

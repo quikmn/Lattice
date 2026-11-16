@@ -9,6 +9,7 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - `/lattice probe` lists which unit values the game is hiding from addons right now.
 - `/lattice status` shows why frames or auras are or aren't showing.
 - `/lattice tank <name>`, `/lattice notank <name>`, `/lattice autotank <name>` fix the tank guess for a player; `/lattice tanks` lists who counts as tank.
+- `/lattice feedback` (or the Feedback button in the settings) shows a link for reporting bugs and ideas.
 - `/lattice show <spell>`, `/lattice hide <spell>`, `/lattice unlist <spell>` edit the aura filters (name or spell ID).
 - Ctrl+Alt+Right-click a frame: tank choice for that player and a picker for their auras.
 

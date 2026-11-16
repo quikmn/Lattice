@@ -80,6 +80,9 @@ local function CreateWindow()
 	end
 
 	-- Footer actions in the sidebar
+	local feedback = W.Button(side, "Feedback / report a bug", function() ns.ShowFeedback() end, SIDEBAR_W - 16)
+	feedback:SetPoint("BOTTOMLEFT", 8, 76)
+
 	local preview = W.Button(side, "Preview frames", function(self)
 		ns.TestMode:Toggle()
 		self:SetText(ns.TestMode:IsActive() and "Stop preview" or "Preview frames")

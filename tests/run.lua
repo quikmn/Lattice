@@ -664,6 +664,18 @@ step("slash commands", function()
 	SlashCmdList.LATTICE("help")
 end)
 
+step("feedback link", function()
+	SlashCmdList.LATTICE("feedback")
+	local d = MOCK.popups.LATTICE_FEEDBACK
+	check(d, "feedback popup not shown")
+	check(d.EditBox:GetText() == ns.FEEDBACK_URL, "feedback box doesn't hold the URL")
+	d.EditBox:SetText("typed over")
+	StaticPopupDialogs.LATTICE_FEEDBACK.EditBoxOnTextChanged(d.EditBox)
+	check(d.EditBox:GetText() == ns.FEEDBACK_URL, "feedback URL can be edited away")
+	StaticPopupDialogs.LATTICE_FEEDBACK.EditBoxOnEscapePressed(d.EditBox)
+	check(not MOCK.popups.LATTICE_FEEDBACK, "escape didn't close the popup")
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default

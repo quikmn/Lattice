@@ -97,6 +97,39 @@ end)
 ------------------------------------------------------------------------
 -- Slash commands
 ------------------------------------------------------------------------
+-- Feedback link. Addons can't open a browser, so show the link selected in a box to copy.
+ns.FEEDBACK_URL = "https://everlookdb.com/lattice.html#feedback"
+StaticPopupDialogs = StaticPopupDialogs or {}
+StaticPopupDialogs["LATTICE_FEEDBACK"] = {
+	text = "Report a bug or suggest an idea.\nPress Ctrl+C to copy the link, then paste it in your browser.",
+	button1 = CLOSE or "Close",
+	hasEditBox = true,
+	editBoxWidth = 320,
+	OnShow = function(self)
+		local eb = self.EditBox or self.editBox
+		if not eb then return end
+		eb:SetText(ns.FEEDBACK_URL)
+		eb:SetFocus()
+		eb:HighlightText()
+	end,
+	EditBoxOnTextChanged = function(eb)
+		if eb:GetText() ~= ns.FEEDBACK_URL then
+			eb:SetText(ns.FEEDBACK_URL)
+			eb:HighlightText()
+		end
+	end,
+	EditBoxOnEnterPressed = function() StaticPopup_Hide("LATTICE_FEEDBACK") end,
+	EditBoxOnEscapePressed = function() StaticPopup_Hide("LATTICE_FEEDBACK") end,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
+
+function ns.ShowFeedback()
+	StaticPopup_Show("LATTICE_FEEDBACK")
+end
+
 local function Help()
 	ns:Print("commands:")
 	ns:Print("  /lattice            open settings")
@@ -112,6 +145,7 @@ local function Help()
 	ns:Print("  /lattice unlist <spell>      take an aura off the filters")
 	ns:Print("  Ctrl+Alt+Right-click a frame: tank choice and aura picker")
 	ns:Print("  /lattice debug      toggle debug messages")
+	ns:Print("  /lattice feedback   link for reporting bugs and ideas")
 end
 
 SLASH_LATTICE1 = "/lattice"
@@ -146,6 +180,8 @@ SlashCmdList.LATTICE = function(msg)
 		ns.Auras:Refresh()
 		if ns.Options:IsShown() then ns.Options:RebuildPage("aurafilters") end
 		ns:Printf("%s: %s", table.concat(ids, ", "), cmd == "unlist" and "off the filters" or ns.Auras.LIST_MODES[cmd]:lower())
+	elseif cmd == "feedback" or cmd == "bug" then
+		ns.ShowFeedback()
 	elseif cmd == "debug" then
 		ns.db.debug = not ns.db.debug
 		ns:Print("debug " .. (ns.db.debug and "on" or "off"))
