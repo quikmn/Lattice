@@ -167,7 +167,9 @@ local function RaidBuffInit(size)
 		icon:SetAllPoints()
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		b:SetIcon(icon)
-		AddCooldown(b, true) -- clock sweep over the icon: how much of the buff is used up
+		-- clock sweep over the icon: how much of the buff is used up, nearly black so it reads at this size
+		local cd = AddCooldown(b, true)
+		if cd.SetSwipeColor then pcall(cd.SetSwipeColor, cd, 0, 0, 0, 0.92) end
 	end
 end
 
