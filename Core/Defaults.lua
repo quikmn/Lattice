@@ -82,7 +82,7 @@ ns.Defaults = {
 
 		healPrediction = true,
 		absorbs = true,
-		lowHealth = true,              -- missing health turns red below lowHealthThreshold %
+		lowHealth = false,             -- missing health turns red below lowHealthThreshold %
 		lowHealthThreshold = 30,
 
 		roleIcon = true,  roleIconSize = 12, roleIconPoint = "TOPLEFT",
