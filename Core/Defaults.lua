@@ -31,7 +31,6 @@ ns.Defaults = {
 		rangeBySpell = true,           -- fade by your heal's range (40 yd) instead of the game's rough check
 		smoothBars = true,
 		tooltips = true,
-		minimapIcon = true,
 		showPets = false,              -- pet frames (hunter, warlock, ...) in their own movable block
 		guessTank = true,              -- no roles assigned: guess the tank (Modules/Roles.lua)
 		tankFrames = true,             -- a block with each tank (and what it targets), in raids
@@ -83,6 +82,8 @@ ns.Defaults = {
 
 		healPrediction = true,
 		absorbs = true,
+		lowHealth = true,              -- missing health turns red below lowHealthThreshold %
+		lowHealthThreshold = 30,
 
 		roleIcon = true,  roleIconSize = 12, roleIconPoint = "TOPLEFT",
 		leaderIcon = true,

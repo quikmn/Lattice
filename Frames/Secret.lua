@@ -118,6 +118,19 @@ function S.NotFullCurve()
 	return c
 end
 
+-- Alpha for the low health warning: `alpha` below `threshold` (0..1) of health, 0 at or above it.
+function S.LowHealthCurve(threshold, alpha)
+	local key = "low" .. threshold .. ":" .. alpha
+	if curves[key] then return curves[key] end
+	if not (C_CurveUtil and C_CurveUtil.CreateCurve) then return nil end
+	local c = C_CurveUtil.CreateCurve()
+	if Enum.LuaCurveType then c:SetType(Enum.LuaCurveType.Step) end
+	c:AddPoint(0, alpha)
+	c:AddPoint(threshold, 0)
+	curves[key] = c
+	return c
+end
+
 function S.PercentCurve()
 	return CurveConstants and CurveConstants.ScaleTo100
 end

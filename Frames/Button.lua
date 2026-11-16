@@ -91,6 +91,9 @@ function B:Build(btn)
 
 	v.bg = U.Solid(v, "BACKGROUND", 0.06, 0.06, 0.07, 0.9)
 	v.bg:SetAllPoints()
+	-- low health warning: red behind the health bar, so only the missing part shows it
+	v.low = U.Solid(v, "BACKGROUND", 0.85, 0.08, 0.08, 1, 1)
+	v.low:Hide()
 
 	-- Health + prediction overlays
 	local health = NewBar(v, 1)
@@ -275,6 +278,8 @@ function B:ApplyLayout(btn)
 	v.baseBorder:SetShown(bs > 0)
 
 	local inner = bs
+	v.low:ClearAllPoints()
+	v.low:SetAllPoints(v.health)
 	v.health:SetStatusBarTexture(tex)
 	v.power:ClearAllPoints()
 	v.power:SetPoint("BOTTOMLEFT", inner, inner)
@@ -420,6 +425,19 @@ function B:UpdateHealth(btn)
 	if Appearance().healthColor == "gradient" then self:UpdateHealthColor(btn) end
 	self:UpdateHealthText(btn)
 	self:UpdatePrediction(btn)
+	self:UpdateLowHealth(btn)
+end
+
+-- Low health warning: the curve turns the (secret) health % into the red layer's alpha inside the client.
+B.LOW_HEALTH_ALPHA = 0.7
+function B:UpdateLowHealth(btn)
+	local unit, v, A = btn.unit, btn.visual, Appearance()
+	if not unit or not A.lowHealth or btn.tankTarget or IsGone(unit) then v.low:Hide() return end
+	local curve = S.LowHealthCurve((A.lowHealthThreshold or 30) / 100, B.LOW_HEALTH_ALPHA)
+	local ok = curve and S.Try("low-health", function()
+		v.low:SetAlpha(UnitHealthPercent(unit, true, curve))
+	end)
+	v.low:SetShown(ok and true or false)
 end
 
 function B:UpdatePrediction(btn)
@@ -712,7 +730,6 @@ function B:UpdateAllButtons()
 		if btn:IsVisible() then self:UpdateAll(btn) end
 	end
 end
-B.UpdateAll_ = B.UpdateAll
 
 ------------------------------------------------------------------------
 -- Events

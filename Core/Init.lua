@@ -85,10 +85,6 @@ end
 ------------------------------------------------------------------------
 local pending, pendingOrder = {}, {}
 
-function ns:InCombat()
-	return InCombatLockdown()
-end
-
 function ns:RunOutOfCombat(key, fn)
 	if not InCombatLockdown() then
 		fn()
@@ -111,16 +107,3 @@ ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 		if job then job() end
 	end
 end)
-
-------------------------------------------------------------------------
--- Module registry: modules register an OnInitialize (after DB is ready)
--- and an OnEnable (after PLAYER_LOGIN).
-------------------------------------------------------------------------
-ns.modules = {}
-
-function ns:NewModule(name)
-	local mod = { name = name }
-	ns.modules[#ns.modules + 1] = mod
-	ns[name] = mod
-	return mod
-end

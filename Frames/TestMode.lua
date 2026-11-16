@@ -16,6 +16,8 @@ local NAMES = { "Thrall", "Jaina", "Anduin", "Malfurion", "Valeera", "Uther", "R
 local ROLES = { "TANK", "HEALER", "DAMAGER", "DAMAGER", "DAMAGER" }
 local DISPELS = { nil, "Magic", nil, nil, "Poison", nil, "Curse", nil, nil, "Disease" }
 local FAKE_POWER = { WARRIOR = "RAGE", ROGUE = "ENERGY" }
+local DISPEL_ICONS = { Magic = "Spell_Frost_FrostNova", Curse = "Spell_Shadow_CurseOfSargeras",
+	Poison = "Spell_Nature_NullifyPoison", Disease = "Spell_Holy_NullifyDisease" }
 local FAKE_POWER_COLOR = { MANA = { r = 0, g = 0.55, b = 1 }, RAGE = { r = 0.78, g = 0.25, b = 0.25 }, ENERGY = { r = 1, g = 0.96, b = 0.41 } }
 
 local function FakeData(i)
@@ -23,7 +25,7 @@ local function FakeData(i)
 		name = NAMES[(i - 1) % #NAMES + 1],
 		class = CLASSES[(i - 1) % #CLASSES + 1],
 		role = ROLES[(i - 1) % #ROLES + 1],
-		hp = (i % 7 == 0) and 0 or (35 + (i * 37) % 66),
+		hp = (i % 7 == 0) and 0 or (i % 8 == 3) and 18 or (35 + (i * 37) % 66),
 		power = 40 + (i * 13) % 60,
 		dead = (i % 7 == 0),
 		offline = (i == 12),
@@ -53,6 +55,17 @@ local function MakeFake(i)
 	v.fakeDispel = U.Border(v.over, 2, 1, 1, 1, 1, "OVERLAY")
 	v.fakeDispelTint = U.Solid(v.over, "ARTWORK", 1, 1, 1, 0.3)
 	v.fakeDispelTint:SetAllPoints(v.health)
+	-- the big dispel icon in the middle, edged in the debuff type's color
+	local big = CreateFrame("Frame", nil, v.over)
+	big:SetFrameLevel(v.over:GetFrameLevel() + 6)
+	big.edge = U.Solid(big, "BACKGROUND", 1, 1, 1, 1)
+	big.edge:SetPoint("TOPLEFT", -2, 2)
+	big.edge:SetPoint("BOTTOMRIGHT", 2, -2)
+	big.icon = big:CreateTexture(nil, "ARTWORK")
+	big.icon:SetAllPoints()
+	big.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	big:Hide()
+	v.fakeDispelIcon = big
 	btn.data = FakeData(i)
 	fakes[i] = btn
 	return btn
@@ -90,6 +103,8 @@ local function Render(btn)
 	v.healAbsorbBar:SetValue(0)
 	v.healBar:SetShown(A.healPrediction and not d.dead)
 	v.absorbBar:SetShown(A.absorbs and not d.dead)
+	v.low:SetAlpha(ns.Buttons.LOW_HEALTH_ALPHA)
+	v.low:SetShown(A.lowHealth and not d.dead and not d.offline and d.hp < (A.lowHealthThreshold or 30))
 
 	-- Same power bar rules as real frames (rogues hide energy, warriors show rage only when tanking, ...).
 	local token = FAKE_POWER[d.class] or "MANA"
@@ -151,6 +166,19 @@ local function Render(btn)
 	local style = D.dispel.style
 	v.fakeDispel:SetShown(showDispel and style ~= "overlay" and true or false)
 	v.fakeDispelTint:SetShown(showDispel and (style == "overlay" or style == "both") and true or false)
+	local big = v.fakeDispelIcon
+	if D.enabled and D.dispel.icon and d.dispel and not d.dead then
+		local col = D.dispel.colors[d.dispel] or { 1, 1, 1, 1 }
+		local size = D.dispel.iconSize or 24
+		big:SetSize(size, size)
+		big:ClearAllPoints()
+		big:SetPoint("CENTER", v.health, "CENTER")
+		big.edge:SetVertexColor(col[1], col[2], col[3], 1)
+		big.icon:SetTexture("Interface\\Icons\\" .. (DISPEL_ICONS[d.dispel] or "INV_Misc_QuestionMark"))
+		big:Show()
+	else
+		big:Hide()
+	end
 	if showDispel then
 		local col = D.dispel.colors[d.dispel] or { 1, 1, 1, 1 }
 		v.fakeDispel:SetColor(col[1], col[2], col[3], 1)

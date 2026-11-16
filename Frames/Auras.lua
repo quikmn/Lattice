@@ -23,6 +23,7 @@ A.DISPEL_TYPES = DISPEL_TYPES
 ns.Defaults.auras = {
 	enabled = true,
 	tooltips = false,          -- aura icons capture the mouse if on (blocks click-casting under them)
+	countdown = false,         -- seconds left as numbers on buff, debuff, boss and defensive icons
 
 	debuffs = { enabled = true, max = 3, size = 16, point = "BOTTOMLEFT", x = 2, y = 2, grow = "RIGHT",
 		onlyDispellable = false, swipe = true, stacks = true,
@@ -33,7 +34,7 @@ ns.Defaults.auras = {
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
 	-- which: "mine" (buffs you can cast) | "all" | "pick" (the families ticked in pick); extra = more spell IDs
-	raidbuffs = { enabled = true, side = "LEFT", size = 18, max = 6, inRaid = false, which = "mine",
+	raidbuffs = { enabled = true, side = "RIGHT", size = 18, max = 6, inRaid = false, which = "mine",
 		pick = { fortitude = true, spirit = true, shadow = true, wild = true, intellect = true,
 			might = true, wisdom = true, kings = true, light = true },
 		extra = {} },
@@ -121,12 +122,17 @@ local function NoMouse(b)
 	end
 end
 
-local function AddCooldown(b, reverse)
+-- countdown: the client draws the seconds left (the duration itself is hidden from us in combat), sized to the icon.
+local function AddCooldown(b, reverse, countdown, size)
 	local cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
 	cd:SetAllPoints()
 	cd:SetReverse(reverse and true or false)
 	cd:SetDrawEdge(false)
-	if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(true) end
+	if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(not countdown) end
+	if countdown and cd.GetCountdownFontString then pcall(function()
+		local fs = cd:GetCountdownFontString()
+		if fs then U.SetFont(fs, math.max(8, math.floor((size or 16) * 0.55)), "OUTLINE") end
+	end) end
 	b:SetDurationCooldown(cd)
 	return cd
 end
@@ -138,7 +144,7 @@ local function AddStacks(b, size)
 	b:SetApplicationCount(n)
 end
 
-local function IconInit(size, swipe, stacks)
+local function IconInit(size, swipe, stacks, countdown)
 	return function(b)
 		b:SetSize(size, size)
 		NoMouse(b)
@@ -151,7 +157,10 @@ local function IconInit(size, swipe, stacks)
 		icon:SetAllPoints()
 		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 		b:SetIcon(icon)
-		if swipe then AddCooldown(b, true) end
+		if swipe or countdown then
+			local cd = AddCooldown(b, true, countdown, size)
+			if not swipe and cd.SetDrawSwipe then cd:SetDrawSwipe(false) end
+		end
 		if stacks then AddStacks(b, size) end
 	end
 end
@@ -180,8 +189,8 @@ local function RaidBuffInit(size)
 end
 
 -- Debuff icons also get a thin dispel-coloured frame.
-local function DebuffInit(size, swipe, stacks)
-	local base = IconInit(size, swipe, stacks)
+local function DebuffInit(size, swipe, stacks, countdown)
+	local base = IconInit(size, swipe, stacks, countdown)
 	return function(b)
 		base(b)
 		if b.AddDispelTypeTexture then
@@ -621,7 +630,7 @@ function A:BuildContainers(btn)
 		-- Instead: dispellable debuffs always show; the rest only when they last LONG_DEBUFF seconds or less.
 		local typed = {}
 		for _, t in ipairs(DISPEL_TYPES) do typed[t] = true end
-		local init = DebuffInit(cfg.size, cfg.swipe, cfg.stacks)
+		local init = DebuffInit(cfg.size, cfg.swipe, cfg.stacks, D.countdown)
 		local c = AddGroupContainer(btn, "debuffs", "HARMFUL", cfg, init,
 			AuraContainerSortMethod.UnitFrameDebuff, lists, "HARMFUL",
 			cfg.hideLong and { excludeDispelTypes = typed, maxDuration = LONG_DEBUFF } or nil)
@@ -669,7 +678,7 @@ function A:BuildContainers(btn)
 			for id in pairs(rbSet) do skip[id] = true end
 			own = { show = lists.show, hide = lists.hide, skip = skip }
 		end
-		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks),
+		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks, D.countdown),
 			AuraContainerSortMethod.ExpirationOnly, own, "HELPFUL", cfg.hideLong and { maxDuration = LONG_BUFF } or nil)
 	end
 
@@ -700,7 +709,7 @@ function A:BuildContainers(btn)
 			candidateFilters = hidden({ isBossOrRoleAura = true }),
 			sortMethod = AuraContainerSortMethod.UnitFrameDebuff,
 			initializeFrame = function(b)
-				IconInit(cfg.size, true, true)(b)
+				IconInit(cfg.size, true, true, D.countdown)(b)
 				b:ClearAllPoints()
 				b:SetPoint(cfg.point, v.health, cfg.point, cfg.x, cfg.y)
 			end,
@@ -716,7 +725,7 @@ function A:BuildContainers(btn)
 			sortMethod = AuraContainerSortMethod.BigDefensive,
 			candidateFilters = { includeSpellIDs = ids },
 			initializeFrame = function(b)
-				IconInit(cfg.size, true, false)(b)
+				IconInit(cfg.size, true, false, D.countdown)(b)
 				b:ClearAllPoints()
 				b:SetPoint(cfg.point, v.health, cfg.point, cfg.x, cfg.y)
 			end,
@@ -922,19 +931,28 @@ function A:AddClassPresets()
 	local _, class = UnitClass("player")
 	local names = self.PRESETS[class]
 	if not names then return {}, {} end
-	local have = {}
+	local have, taken = {}, {}
 	for _, ind in ipairs(ns.db.auras.indicators) do
 		if ind.name then have[ind.name:lower()] = true end
+		taken[(ind.point or "") .. ":" .. (ind.x or 0) .. ":" .. (ind.y or 0)] = true
 	end
-	local added, skipped, slot = {}, {}, 0
+	-- the next preset spot no indicator sits on yet (clicking again later adds new presets beside the old ones)
+	local slot = 0
+	local function nextSlot()
+		repeat
+			slot = slot + 1
+			local p = PRESET_SLOTS[slot]
+			if p and not taken[p.point .. ":" .. p.x .. ":" .. p.y] then return p end
+		until not p
+	end
+	local added, skipped = {}, {}
 	for _, entry in ipairs(names) do
 		local fixed = type(entry) == "table" and entry or nil
 		local name = fixed and fixed.name or entry
 		if not have[name:lower()] then
 			local ids = fixed and fixed.ids or self:ResolveSpells(name, true)
-			if #ids > 0 and slot < #PRESET_SLOTS then
-				slot = slot + 1
-				local p = PRESET_SLOTS[slot]
+			local p = #ids > 0 and nextSlot()
+			if p then
 				self:AddIndicator(name, ids, { point = p.point, x = p.x, y = p.y, color = fixed and fixed.color or p.color,
 					harmful = fixed and fixed.harmful or nil, mine = not (fixed and (fixed.harmful or fixed.any)) }, true)
 				added[#added + 1] = name

@@ -268,7 +268,7 @@ function H:ApplyRaid()
 		hdr:SetAttribute("groupFilter", tostring(g))
 		ConfigureGrowth(hdr, L, nil, 1)
 		-- order inside each group: role or class (the group itself is already fixed)
-		local inner = L.innerSort ~= "GROUP" and GROUP_BY[L.innerSort] or nil
+		local inner = GROUP_BY[L.innerSort]
 		hdr:SetAttribute("groupBy", inner and inner.groupBy or nil)
 		hdr:SetAttribute("groupingOrder", inner and inner.order or nil)
 		hdr:SetAttribute("sortMethod", (SORT[L.sortMethod] or SORT.INDEX).sortMethod)
