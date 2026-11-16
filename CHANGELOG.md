@@ -1,6 +1,6 @@
 # Lattice Party & Raid Frames
 
-## Unreleased
+## v0.5.1 (2026-11-16)
 
 - Debuffs you can dispel are easy to spot: a big icon of the debuff in the middle of the frame, edged in its type's colour (blue Magic, purple Curse, green Poison, brown Disease), with a soft pulse around it. Works in combat. Size, pulse and on/off under Dispel highlight (Auras page).
 - Raid buffs show only the ones you can cast by default: a priest sees Fortitude, Divine Spirit and Shadow Protection, a mage Arcane Intellect. Classes without a raid buff see all of them. Change it under Which buffs (Auras page): only mine, all, or pick them one by one. Want another buff in the row, like Thorns? Add it by name. To keep one out, put it on Never show (Aura filters page).
