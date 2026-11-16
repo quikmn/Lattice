@@ -474,12 +474,17 @@ end
 ------------------------------------------------------------------------
 local hiddenBlizzard = false
 
+-- Park a Blizzard frame under our hidden frame and stop its events. Only C-side
+-- widget calls: no :Hide(). PartyFrame and the compact raid frames are Edit Mode
+-- systems whose Hide is a Lua override (snapping, layout, Edit Mode bookkeeping);
+-- running that from addon code writes Blizzard state under our taint, and Blizzard
+-- code that reads it later (closing the character sheet, say) then errors on
+-- secret health values. The hidden parent alone keeps the frame off screen.
 local function Kill(frame)
 	if not frame then return end
 	pcall(function()
 		frame:UnregisterAllEvents()
 		frame:SetParent(HIDDEN)
-		frame:Hide()
 	end)
 end
 

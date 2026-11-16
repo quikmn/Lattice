@@ -3,6 +3,7 @@
 ## Unreleased
 
 - `/lattice feedback` and a Feedback button in the settings window show a link for reporting bugs and ideas.
+- Fix: closing the character window (for example at a vendor) could show an error about a "secret number" blamed on Lattice. Lattice no longer touches Blizzard's pop-up dialogs, its Escape-to-close list or its Edit Mode frames. Escape still closes Lattice's settings window.
 
 ## v0.5.1 (2026-11-16)
 

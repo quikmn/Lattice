@@ -98,36 +98,61 @@ end)
 -- Slash commands
 ------------------------------------------------------------------------
 -- Feedback link. Addons can't open a browser, so show the link selected in a box to copy.
+-- Our own small window, not a StaticPopup: StaticPopupDialogs and the popup frames
+-- are Blizzard's, and touching them from an addon taints Blizzard's own dialogs and
+-- windows (secret-value errors when closing the character sheet and the like).
 ns.FEEDBACK_URL = "https://everlookdb.com/lattice.html#feedback"
-StaticPopupDialogs = StaticPopupDialogs or {}
-StaticPopupDialogs["LATTICE_FEEDBACK"] = {
-	text = "Report a bug or suggest an idea.\nPress Ctrl+C to copy the link, then paste it in your browser.",
-	button1 = CLOSE or "Close",
-	hasEditBox = true,
-	editBoxWidth = 320,
-	OnShow = function(self)
-		local eb = self.EditBox or self.editBox
-		if not eb then return end
-		eb:SetText(ns.FEEDBACK_URL)
-		eb:SetFocus()
-		eb:HighlightText()
-	end,
-	EditBoxOnTextChanged = function(eb)
-		if eb:GetText() ~= ns.FEEDBACK_URL then
-			eb:SetText(ns.FEEDBACK_URL)
-			eb:HighlightText()
+local feedback
+
+local function FeedbackWindow()
+	local W, T, U = ns.Widgets, ns.Theme, ns.Util
+	local function rgba(c) return c[1], c[2], c[3], c[4] or 1 end
+	local f = CreateFrame("Frame", "LatticeFeedbackWindow", UIParent)
+	f:SetSize(380, 132)
+	f:SetPoint("TOP", 0, -160)
+	f:SetFrameStrata("DIALOG")
+	f:SetToplevel(true)
+	f:SetClampedToScreen(true)
+	f:EnableMouse(true)
+	f:Hide()
+	U.Solid(f, "BACKGROUND", rgba(T.bg)):SetAllPoints()
+	U.Border(f, 1, rgba(T.border))
+
+	local text = W.Text(f, T.font, T.text)
+	text:SetPoint("TOPLEFT", 16, -14)
+	text:SetPoint("TOPRIGHT", -16, -14)
+	text:SetJustifyH("CENTER")
+	text:SetText("Report a bug or suggest an idea.\nPress Ctrl+C to copy the link, then paste it in your browser.")
+
+	local box = W.EditBox(f, 348, 24)
+	box:SetPoint("TOP", 0, -54)
+	box:SetScript("OnTextChanged", function(self)
+		if self:GetText() ~= ns.FEEDBACK_URL then
+			self:SetText(ns.FEEDBACK_URL)
+			self:HighlightText()
 		end
-	end,
-	EditBoxOnEnterPressed = function() StaticPopup_Hide("LATTICE_FEEDBACK") end,
-	EditBoxOnEscapePressed = function() StaticPopup_Hide("LATTICE_FEEDBACK") end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
+	end)
+	box:SetScript("OnEnterPressed", function() f:Hide() end)
+	box:SetScript("OnEscapePressed", function() f:Hide() end)
+	f.box = box
+
+	local close = W.Button(f, CLOSE or "Close", function() f:Hide() end, 100)
+	close:SetPoint("BOTTOM", 0, 14)
+
+	f:SetScript("OnShow", function()
+		box:SetText(ns.FEEDBACK_URL)
+		box:SetFocus()
+		box:HighlightText()
+	end)
+	f:SetScript("OnHide", function() box:ClearFocus() end)
+	W.CloseOnEscape(f)
+	return f
+end
 
 function ns.ShowFeedback()
-	StaticPopup_Show("LATTICE_FEEDBACK")
+	feedback = feedback or FeedbackWindow()
+	feedback:Show()
+	return feedback
 end
 
 local function Help()

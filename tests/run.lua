@@ -18,6 +18,23 @@ end
 
 local function check(cond, msg) if not cond then error(msg, 2) end end
 
+-- Taint guard: every global the addon assigns (at load or later) is recorded, and
+-- Blizzard's party/raid frames record any :Hide() call. Addon code must not write
+-- Blizzard globals or run Blizzard Lua on Blizzard frames (in WoW Forever that taints
+-- Blizzard's UI and its secret-value checks fail, e.g. closing the character sheet).
+local globalWrites = {}
+local addonEnv = setmetatable({}, {
+	__index = _G,
+	__newindex = function(_, k, v) globalWrites[k] = true; _G[k] = v end,
+})
+local BLIZZARD_FRAMES = { "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer" }
+local blizzardHides = {}
+for _, name in ipairs(BLIZZARD_FRAMES) do
+	local f = _G[name]
+	f:SetParent(UIParent)
+	f.Hide = function() blizzardHides[#blizzardHides + 1] = name end
+end
+
 -- Load files listed in the TOC
 step("load TOC files", function()
 	local toc = assert(io.open(ROOT .. "/LatticePartyRaidFrames.toc")):read("*a")
@@ -26,6 +43,7 @@ step("load TOC files", function()
 			local path = ROOT .. "/" .. line:gsub("\\", "/"):gsub("%s+$", "")
 			local chunk, err = loadfile(path)
 			if not chunk then error("syntax: " .. err) end
+			setfenv(chunk, addonEnv)
 			chunk(ADDON, ns)
 		end
 	end
@@ -666,14 +684,43 @@ end)
 
 step("feedback link", function()
 	SlashCmdList.LATTICE("feedback")
-	local d = MOCK.popups.LATTICE_FEEDBACK
-	check(d, "feedback popup not shown")
-	check(d.EditBox:GetText() == ns.FEEDBACK_URL, "feedback box doesn't hold the URL")
-	d.EditBox:SetText("typed over")
-	StaticPopupDialogs.LATTICE_FEEDBACK.EditBoxOnTextChanged(d.EditBox)
-	check(d.EditBox:GetText() == ns.FEEDBACK_URL, "feedback URL can be edited away")
-	StaticPopupDialogs.LATTICE_FEEDBACK.EditBoxOnEscapePressed(d.EditBox)
-	check(not MOCK.popups.LATTICE_FEEDBACK, "escape didn't close the popup")
+	local d = LatticeFeedbackWindow
+	check(d and d:IsShown(), "feedback window not shown")
+	check(d.box:GetText() == ns.FEEDBACK_URL, "feedback box doesn't hold the URL")
+	d.box:SetText("typed over")
+	d.box:GetScript("OnTextChanged")(d.box, true)
+	check(d.box:GetText() == ns.FEEDBACK_URL, "feedback URL can be edited away")
+	d.box:GetScript("OnEscapePressed")(d.box)
+	check(not d:IsShown(), "escape in the box didn't close the window")
+	ns.ShowFeedback()
+	d:GetScript("OnKeyDown")(d, "ESCAPE")
+	check(not d:IsShown(), "escape didn't close the window")
+	check(next(MOCK.popups) == nil, "a Blizzard StaticPopup was used")
+end)
+
+step("options window closes on Escape without UISpecialFrames", function()
+	ns.Options:Open()
+	check(LatticeOptionsWindow:IsShown(), "options window not shown")
+	LatticeOptionsWindow:GetScript("OnKeyDown")(LatticeOptionsWindow, "A")
+	check(LatticeOptionsWindow:IsShown(), "a normal key closed the window")
+	LatticeOptionsWindow:GetScript("OnKeyDown")(LatticeOptionsWindow, "ESCAPE")
+	check(not LatticeOptionsWindow:IsShown(), "escape didn't close the window")
+end)
+
+step("no taint: Blizzard globals and frames left alone", function()
+	local allowed = {
+		LatticeDB = true, SLASH_LATTICE1 = true, SLASH_LATTICE2 = true,
+		Lattice_OnCompartmentClick = true, Lattice_OnCompartmentEnter = true, Lattice_OnCompartmentLeave = true,
+	}
+	for k in pairs(globalWrites) do
+		check(allowed[k], "addon assigned the global " .. tostring(k))
+	end
+	check(next(UISpecialFrames) == nil, "addon added to UISpecialFrames")
+	check(next(StaticPopupDialogs) == nil, "addon added to StaticPopupDialogs")
+	check(#blizzardHides == 0, "addon called :Hide() on Blizzard frame " .. tostring(blizzardHides[1]))
+	for _, name in ipairs(BLIZZARD_FRAMES) do
+		check(not _G[name]:IsVisible(), name .. " still visible with hideBlizzard on")
+	end
 end)
 
 step("logout strips defaults", function()

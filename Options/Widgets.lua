@@ -29,6 +29,26 @@ local function Tooltip(frame, title, body)
 end
 W.Tooltip = Tooltip
 
+-- Escape closes `frame`, through the frame's own key handler. Not UISpecialFrames:
+-- Blizzard walks that list when Escape closes its own windows (character sheet,
+-- vendor...), and an entry written by an addon taints that walk, so the window's
+-- OnHide then fails on secret health values. Keys other than Escape pass through.
+-- SetPropagateKeyboardInput is blocked in combat, so a window opened in combat
+-- leaves the keyboard alone, and Escape in combat closes it and also reaches the game.
+-- Call after the frame's own OnShow script is set (this hooks it).
+function W.CloseOnEscape(frame)
+	frame:HookScript("OnShow", function(self)
+		local ok = not InCombatLockdown()
+		if ok then self:SetPropagateKeyboardInput(true) end
+		self:EnableKeyboard(ok)
+	end)
+	frame:SetScript("OnKeyDown", function(self, key)
+		local esc = key == "ESCAPE"
+		if not InCombatLockdown() then self:SetPropagateKeyboardInput(not esc) end
+		if esc then self:Hide() end
+	end)
+end
+
 ------------------------------------------------------------------------
 -- Stack: vertical layout container used by every page
 ------------------------------------------------------------------------

@@ -30,7 +30,6 @@ local function CreateWindow()
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 	f:Hide()
-	tinsert(UISpecialFrames, "LatticeOptionsWindow") -- close with Escape
 
 	local bg = U.Solid(f, "BACKGROUND", rgba(T.bg))
 	bg:SetAllPoints()
@@ -123,6 +122,7 @@ local function CreateWindow()
 		f.unlockButton:SetText(ns.Mover:IsUnlocked() and "Lock frames" or "Unlock frames")
 		if currentPage and pages[currentPage].stack then pages[currentPage].stack:RefreshAll() end
 	end)
+	W.CloseOnEscape(f) -- not UISpecialFrames, see there
 	return f
 end
 
