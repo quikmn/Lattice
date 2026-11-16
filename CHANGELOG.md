@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Settings window: a proper scroll bar you can grab and drag, or click above or below it to jump a page. The mouse wheel no longer changes sliders, so scrolling down the page never changes a setting by accident. Type a number in the box beside a slider for exact values.
 - Tank frames: in raids, each tank gets a frame in a small block of its own, with what that tank is targeting beside it (red hostile, yellow neutral). Uses assigned roles and Lattice's tank guess, so it works with no roles set. Unlock frames to move it. General page: on/off, targets on/off, also in a party.
 - Missing buff mark: priests see a small Fortitude icon with a red edge on everyone who doesn't have it; mages the same for Arcane Intellect (mana users only), druids for Mark of the Wild. Works in parties and raids. Other players' auras can only be read out of combat, so it is worked out then and kept during a fight. Auras page.
 - Range by your heal: priests, druids, shamans and paladins fade players by the range of a heal they know (40 yards), instead of the game's rougher check. General page.

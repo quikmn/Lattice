@@ -137,7 +137,7 @@ function Options:ShowPage(id)
 	end
 	if not p.scroll then
 		p.scroll = W.ScrollPage(window.content)
-		local width = window.content:GetWidth() - 12
+		local width = window.content:GetWidth() - 24 -- the scroll bar takes the right edge
 		p.scroll.child:SetWidth(width)
 		p.stack = W.Stack(p.scroll.child, width)
 		p.builder(p.stack, p)

@@ -236,7 +236,6 @@ function W.Slider(stack, opt)
 		local enabled = not opt.disabled or not opt.disabled()
 		f:SetAlpha(enabled and 1 or 0.4)
 		slider:EnableMouse(enabled)
-		slider:EnableMouseWheel(enabled)
 		box:EnableMouse(enabled)
 	end
 
@@ -249,10 +248,7 @@ function W.Slider(stack, opt)
 		opt.set(v)
 	end)
 	slider:SetScript("OnSizeChanged", function() updateFill(slider:GetValue()) end)
-	slider:EnableMouseWheel(true)
-	slider:SetScript("OnMouseWheel", function(self, delta)
-		self:SetValue(math.min(opt.max, math.max(opt.min, self:GetValue() + delta * (opt.step or 1))))
-	end)
+	-- No mouse wheel on sliders: the wheel scrolls the page, so scrolling past a slider never changes it.
 	box:SetScript("OnEnterPressed", function(self)
 		local v = tonumber(self:GetText())
 		if v then
@@ -509,43 +505,96 @@ end
 ------------------------------------------------------------------------
 -- Scrollable page body
 ------------------------------------------------------------------------
+local BAR_W = 12
+
 function W.ScrollPage(parent)
 	local scroll = CreateFrame("ScrollFrame", nil, parent)
-	scroll:SetAllPoints()
+	scroll:SetPoint("TOPLEFT")
+	scroll:SetPoint("BOTTOMRIGHT", -(BAR_W + 6), 0)
 	local child = CreateFrame("Frame", nil, scroll)
 	child:SetSize(1, 1)
 	scroll:SetScrollChild(child)
 
-	local bar = U.Solid(scroll, "OVERLAY", T.muted[1], T.muted[2], T.muted[3], 0.5)
-	bar:SetWidth(3)
-	bar:Hide()
+	-- Scroll bar beside the page: drag the thumb, or click the track to jump a page up or down.
+	local track = CreateFrame("Frame", nil, parent)
+	track:SetPoint("TOPRIGHT", -3, -2)
+	track:SetPoint("BOTTOMRIGHT", -3, 2)
+	track:SetWidth(BAR_W)
+	local trackBg = U.Solid(track, "BACKGROUND", T.muted[1], T.muted[2], T.muted[3], 0.12)
+	trackBg:SetAllPoints()
+	local thumb = CreateFrame("Frame", nil, track)
+	thumb:SetWidth(BAR_W)
+	local thumbTex = U.Solid(thumb, "ARTWORK", T.muted[1], T.muted[2], T.muted[3], 0.55)
+	thumbTex:SetAllPoints()
+	track:Hide()
 
+	local function maxScroll()
+		return math.max(0, child:GetHeight() - scroll:GetHeight())
+	end
 	local function update()
-		local viewH = scroll:GetHeight()
-		local contentH = child:GetHeight()
-		local maxScroll = math.max(0, contentH - viewH)
-		if scroll:GetVerticalScroll() > maxScroll then scroll:SetVerticalScroll(maxScroll) end
-		if maxScroll <= 0 then bar:Hide() return end
-		local h = math.max(24, viewH * viewH / contentH)
-		local y = (viewH - h) * scroll:GetVerticalScroll() / maxScroll
-		bar:SetHeight(h)
-		bar:ClearAllPoints()
-		bar:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", -2, -y)
-		bar:Show()
+		local viewH, contentH, m = scroll:GetHeight(), child:GetHeight(), maxScroll()
+		if scroll:GetVerticalScroll() > m then scroll:SetVerticalScroll(m) end
+		if m <= 0 or not scroll:IsShown() then track:Hide() return end
+		local trackH = track:GetHeight()
+		local h = math.max(30, trackH * viewH / contentH)
+		thumb:SetHeight(h)
+		thumb:ClearAllPoints()
+		thumb:SetPoint("TOP", track, "TOP", 0, -(trackH - h) * scroll:GetVerticalScroll() / m)
+		track:Show()
+	end
+	local function setScroll(v)
+		scroll:SetVerticalScroll(math.min(maxScroll(), math.max(0, v)))
+		update()
 	end
 
-	scroll:EnableMouseWheel(true)
-	scroll:SetScript("OnMouseWheel", function(self, delta)
-		local maxScroll = math.max(0, child:GetHeight() - self:GetHeight())
-		self:SetVerticalScroll(math.min(maxScroll, math.max(0, self:GetVerticalScroll() - delta * 40)))
-		update()
+	local function hover(on)
+		thumbTex:SetVertexColor(T.muted[1], T.muted[2], T.muted[3], on and 0.85 or 0.55)
+	end
+	thumb:EnableMouse(true)
+	thumb:SetScript("OnEnter", function() hover(true) end)
+	thumb:SetScript("OnLeave", function(self) if not self.dragging then hover(false) end end)
+	thumb:SetScript("OnMouseDown", function(self, button)
+		if button ~= "LeftButton" then return end
+		local _, y = GetCursorPosition()
+		self.dragging = { y = y / self:GetEffectiveScale(), start = scroll:GetVerticalScroll() }
+		hover(true)
 	end)
-	scroll:SetScript("OnSizeChanged", function(self, w)
+	thumb:SetScript("OnMouseUp", function(self)
+		self.dragging = nil
+		hover(self:IsMouseOver())
+	end)
+	thumb:SetScript("OnUpdate", function(self)
+		local d = self.dragging
+		if not d then return end
+		if not IsMouseButtonDown("LeftButton") then self.dragging = nil; hover(self:IsMouseOver()) return end
+		local _, y = GetCursorPosition()
+		y = y / self:GetEffectiveScale()
+		local room = track:GetHeight() - self:GetHeight()
+		if room > 0 then setScroll(d.start + (d.y - y) * maxScroll() / room) end
+	end)
+	track:EnableMouse(true)
+	track:SetScript("OnMouseDown", function(self, button)
+		if button ~= "LeftButton" then return end
+		local _, y = GetCursorPosition()
+		y = y / self:GetEffectiveScale()
+		local page = scroll:GetHeight() - 40
+		setScroll(scroll:GetVerticalScroll() + (y < thumb:GetBottom() and page or -page))
+	end)
+
+	scroll:EnableMouseWheel(true)
+	scroll:SetScript("OnMouseWheel", function(_, delta)
+		setScroll(scroll:GetVerticalScroll() - delta * 40)
+	end)
+	scroll:SetScript("OnSizeChanged", function(_, w)
 		child:SetWidth(w)
 		update()
 	end)
+	-- the bar sits outside the scroll area (beside it), so it follows the page's visibility by hand
+	scroll:SetScript("OnShow", update)
+	scroll:SetScript("OnHide", function() thumb.dragging = nil; track:Hide() end)
 	child:SetScript("OnSizeChanged", update)
 	scroll.child = child
+	scroll.track = track
 	scroll.UpdateBar = update
 	return scroll
 end
