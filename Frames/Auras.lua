@@ -32,7 +32,7 @@ ns.Defaults.auras = {
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
-	raidbuffs = { enabled = true, side = "RIGHT", size = 14, max = 6, inRaid = false },
+	raidbuffs = { enabled = true, side = "LEFT", size = 14, max = 6, inRaid = false },
 	missingBuff = true, -- mark players missing your class's long buff (Modules/MissingBuff.lua)
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
