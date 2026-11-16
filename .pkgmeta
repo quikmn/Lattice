@@ -1,6 +1,7 @@
 package-as: LatticePartyRaidFrames
 
 ignore:
+  - screenshots
   - README.md
   - tests
   - .github
