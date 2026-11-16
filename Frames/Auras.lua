@@ -32,7 +32,7 @@ ns.Defaults.auras = {
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
-	raidbuffs = { enabled = true, side = "LEFT", size = 14, max = 6, inRaid = false },
+	raidbuffs = { enabled = true, side = "LEFT", size = 18, max = 6, inRaid = false },
 	missingBuff = true, -- mark players missing your class's long buff (Modules/MissingBuff.lua)
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
@@ -147,6 +147,32 @@ local function IconInit(size, swipe, stacks)
 		b:SetIcon(icon)
 		if swipe then AddCooldown(b, true) end
 		if stacks then AddStacks(b, size) end
+	end
+end
+
+-- Raid buff icons sit outside the frame, so they never block click-casting: they always take the mouse (tooltip
+-- with the time left) and show the time left under the icon.
+local function RaidBuffInit(size)
+	return function(b)
+		b:SetSize(size, size)
+		pcall(b.EnableMouse, b, true)
+		if b.SetMouseClickEnabled then pcall(b.SetMouseClickEnabled, b, false) end
+		if b.SetTooltipAnchorPoint then pcall(b.SetTooltipAnchorPoint, b, "ANCHOR_BOTTOMLEFT") end
+		local bg = b:CreateTexture(nil, "BACKGROUND")
+		bg:SetTexture(U.WHITE)
+		bg:SetVertexColor(0, 0, 0, 1)
+		bg:SetPoint("TOPLEFT", -1, 1)
+		bg:SetPoint("BOTTOMRIGHT", 1, -1)
+		local icon = b:CreateTexture(nil, "ARTWORK")
+		icon:SetAllPoints()
+		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		b:SetIcon(icon)
+		if b.SetDurationText then
+			local t = b:CreateFontString(nil, "OVERLAY")
+			U.SetFont(t, math.max(8, math.floor(size * 0.5)), "OUTLINE")
+			t:SetPoint("TOP", b, "BOTTOM", 1, -1)
+			pcall(b.SetDurationText, b, t)
+		end
 	end
 end
 
@@ -512,7 +538,7 @@ function A:BuildContainers(btn)
 		local left = cfg.side == "LEFT"
 		if left then c:SetPoint("TOPRIGHT", btn, "TOPLEFT", -2, 0) else c:SetPoint("TOPLEFT", btn, "TOPRIGHT", 2, 0) end
 		ConfigureFlow(c, left and "TOPRIGHT" or "TOPLEFT", left and "LEFT" or "RIGHT")
-		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, IconInit(cfg.size, false, false), AuraContainerSortMethod.Default,
+		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, RaidBuffInit(cfg.size), AuraContainerSortMethod.Default,
 			hidden({ includeSpellIDs = RAID_BUFFS }), 1)
 		c:SetShown(A.RaidBuffsShown())
 		btn.raidBuffs = c

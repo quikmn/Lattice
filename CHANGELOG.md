@@ -8,7 +8,7 @@
 - Range by your heal: priests, druids, shamans and paladins fade players by the range of a heal they know (40 yards), instead of the game's rougher check. General page.
 - Class presets are Classic spells only. Priests get a Weakened Soul marker (who can't take a shield yet) next to Renew, Power Word: Shield and Fear Ward; paladins get Forbearance. Already added your presets? Click "Add my class's HoTs and shields" again to add the new ones.
 - Raid with one column per group: order the players inside each group by class (or by role). Layout page.
-- Raid buffs get their own row beside each frame: Fortitude, Mark of the Wild, Arcane Intellect, the Blessings and the like, from anyone, so you can see at a glance who is missing yours. It sits left of the frame and grows to the left; you can move it to the right side. It shows in a party and solo; in a raid only if you turn on "Also in raids" (Auras page). The buff icons on the frame keep your HoTs and shields.
+- Raid buffs get their own row beside each frame: Fortitude, Mark of the Wild, Arcane Intellect, the Blessings and the like, from anyone, so you can see at a glance who is missing yours. It sits left of the frame and grows to the left; you can move it to the right side. Each icon shows the time left under it, and hovering it shows the buff's tooltip. It shows in a party and solo; in a raid only if you turn on "Also in raids" (Auras page). The buff icons on the frame keep your HoTs and shields.
 
 ## v0.4.6 (2026-11-15)
 
