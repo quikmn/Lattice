@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix: buffs like Renew could vanish when moved to the top-left corner. They grew out of the frame and sat under the raid buff row. Buff and debuff icons now grow into the frame from whichever corner they are in ("Into the frame", the new default under Grow towards).
 - `/lattice feedback` and a Feedback button in the settings window show a link for reporting bugs and ideas.
 - Fix: closing the character window (for example at a vendor) could show an error about a "secret number" blamed on Lattice. Lattice no longer touches Blizzard's pop-up dialogs, its Escape-to-close list or its Edit Mode frames. Escape still closes Lattice's settings window.
 

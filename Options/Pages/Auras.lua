@@ -2,7 +2,7 @@ local _, ns = ...
 local W, O, U, T = ns.Widgets, ns.Options, ns.Util, ns.Theme
 local Bind = O.Bind
 
-local GROW_ITEMS = { { value = "RIGHT", text = "Right" }, { value = "LEFT", text = "Left" }, { value = "UP", text = "Up" }, { value = "DOWN", text = "Down" } }
+local GROW_ITEMS = { { value = "AUTO", text = "Into the frame" }, { value = "RIGHT", text = "Right" }, { value = "LEFT", text = "Left" }, { value = "UP", text = "Up" }, { value = "DOWN", text = "Down" } }
 
 local function Pos(s, prefix, withGrow, disabled)
 	W.Dropdown(s, Bind(prefix .. ".point", "auras", { label = "Position", items = O.POINT_ITEMS, disabled = disabled }))

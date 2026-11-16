@@ -25,10 +25,10 @@ ns.Defaults.auras = {
 	tooltips = false,          -- aura icons capture the mouse if on (blocks click-casting under them)
 	countdown = false,         -- seconds left as numbers on buff, debuff, boss and defensive icons
 
-	debuffs = { enabled = true, max = 3, size = 16, point = "BOTTOMLEFT", x = 2, y = 2, grow = "RIGHT",
+	debuffs = { enabled = true, max = 3, size = 16, point = "BOTTOMLEFT", x = 2, y = 2, grow = "AUTO",
 		onlyDispellable = false, swipe = true, stacks = true,
 		hideLong = true },  -- skip long debuffs nobody can dispel (Boosted Rest, an hour-long lockout); dispellable ones always show
-	buffs   = { enabled = true, max = 3, size = 14, point = "TOPRIGHT", x = -2, y = -2, grow = "LEFT",
+	buffs   = { enabled = true, max = 3, size = 14, point = "TOPRIGHT", x = -2, y = -2, grow = "AUTO",
 		source = "mine", swipe = true, stacks = true,  -- mine = my HoTs/buffs, all = raid buffs
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
@@ -330,8 +330,14 @@ local function NewContainer(btn)
 	return c
 end
 
+-- grow "AUTO" (the default): icons in a corner grow into the frame: a left corner grows right, a right corner left. Growing the other way puts
+-- them outside the frame, under the raid buff row (left) or off to the side, where they can't be seen.
+function A.InwardGrow(point)
+	return point and point:find("RIGHT") and "LEFT" or "RIGHT"
+end
+
 local function ConfigureFlow(c, point, grow)
-	local g = GROW[grow] or GROW.RIGHT
+	local g = GROW[(grow == nil or grow == "AUTO") and A.InwardGrow(point) or grow] or GROW.RIGHT
 	local FD = AnchorUtil and AnchorUtil.FlowDirection
 	local FA = AnchorUtil and AnchorUtil.FlowLayoutAxis
 	if FA then c:SetFlowLayoutAxis(g[3] == 1 and FA.Vertical or FA.Horizontal) end

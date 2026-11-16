@@ -723,6 +723,15 @@ step("no taint: Blizzard globals and frames left alone", function()
 	end
 end)
 
+step("aura icons grow into the frame from any corner", function()
+	local A = ns.Auras
+	check(A.InwardGrow("TOPLEFT") == "RIGHT", "top-left buffs would grow out of the frame")
+	check(A.InwardGrow("BOTTOMLEFT") == "RIGHT", "bottom-left would grow out of the frame")
+	check(A.InwardGrow("TOPRIGHT") == "LEFT", "top-right would grow out of the frame")
+	check(A.InwardGrow("RIGHT") == "LEFT", "right would grow out of the frame")
+	check(A.InwardGrow("CENTER") == "RIGHT", "center should grow right")
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default
