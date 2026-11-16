@@ -16,9 +16,12 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - Party, raid and large-raid layouts that switch automatically. Pet frames in their own movable block (Layout page).
 - Click-casting on frames: mouse buttons 1-5 with Shift, Ctrl and Alt.
 - Hover-casting: bind a key to a spell and it casts on whoever the mouse is over, optionally falling back to your friendly target. It never falls back to you.
-- Your HoTs and buffs, debuffs, dispel highlight, boss debuff and big defensives. Grid-style spell indicators, plus one-click presets for your class.
-- Incoming heals, shields, range fade, role, leader, raid marker, ready check, resurrect and summon icons. Dead players tint red, offline players grey.
-- Profiles per spec, import and export.
+- Your HoTs and buffs, debuffs, boss debuff and big defensives, with optional seconds-left numbers. Grid-style spell indicators, plus one-click presets for your class.
+- Dispel highlight: a big icon of a debuff you can remove in the middle of the frame, edged in its type's colour, plus an optional coloured border or tint.
+- Raid buffs in a row beside each frame, and a mark on players missing your class's buff.
+- Incoming heals, shields, low health warning, range fade (by your heal's range), role, leader, raid marker, ready check, resurrect and summon icons. Dead players tint red, offline players grey.
+- Tank frames with each tank's target, in raids.
+- Profiles per spec (on clients with specs), and one string to share your whole setup.
 - Tank guessing when the group has no roles, power bars by power type and role, and aura filters (always show / never show).
 
 ## Changes
