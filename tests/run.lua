@@ -379,6 +379,15 @@ step("aura filters: lists reach the containers", function()
 	check(A.ListSets({}).show == nil and A.ListSets({ [5] = false }).skip == nil, "empty and removed entries")
 	check(A.RAID_BUFFS[10938] and A.RAID_BUFFS[21564] and A.RAID_BUFFS[9885], "raid buffs: Fortitude, Prayer of Fortitude, Mark of the Wild")
 	check(A.RaidBuffsShown() == not IsInRaid(), "raid buff row: party yes, raid no by default")
+	local rb = ns.db.auras.raidbuffs
+	local old = { which = rb.which, pick = rb.pick, extra = rb.extra }
+	rb.which = "all"
+	check(A:RaidBuffSet()[10938] and A:RaidBuffSet()[19740], "raid buffs: all")
+	rb.which = "pick"; rb.pick = { intellect = true }
+	check(A:RaidBuffSet()[10156] and not A:RaidBuffSet()[10938], "raid buffs: picked only")
+	rb.extra = { 467 }
+	check(A:RaidBuffSet()[467], "raid buffs: extra spells")
+	rb.which, rb.pick, rb.extra = old.which, old.pick, old.extra
 	check(ns.MissingBuff and ns.MissingBuff.HasBuff, "missing-buff module loaded")
 	for _, entry in ipairs(A.PRESETS.PRIEST) do
 		local name = type(entry) == "table" and entry.name or entry
@@ -557,6 +566,15 @@ step("profiles: create, switch, export, import, delete", function()
 	check(str:sub(1, 5) == "LAT1:", "bad export prefix")
 	local ok, err = ns.Profiles:Import(str, "Imported")
 	check(ok, "import failed: " .. tostring(err))
+	check(ns.Database:ActiveName() == "Imported" and ns.db.layouts.raid.width == 101, "import switches to it")
+	-- with click-casting, unnamed: gets a free name; same class takes the bindings
+	ns.char.bindings[1].action = "menu"
+	local withCast = assert(ns.Profiles:Export(nil, true))
+	ns.char.bindings[1].action = "target"
+	local ok2, name2, note = ns.Profiles:Import(withCast, nil, true)
+	check(ok2 and name2 == "Imported 2", "free name: " .. tostring(name2))
+	check(ns.char.bindings[1].action == "menu", "click-casting taken: " .. tostring(note))
+	ns.char.bindings[1].action = "target"
 	ns.Profiles:Switch("Default")
 	check(ns.db.layouts.raid.width ~= 101, "profiles share data")
 	check(ns.Profiles:Delete("Healer"), "delete failed")

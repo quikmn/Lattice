@@ -32,7 +32,11 @@ ns.Defaults.auras = {
 		hideLong = true },  -- skip buffs that last over LONG_BUFF seconds (Fortitude, Mark of the Wild): HoTs and shields stay
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
-	raidbuffs = { enabled = true, side = "LEFT", size = 18, max = 6, inRaid = false },
+	-- which: "mine" (buffs you can cast) | "all" | "pick" (the families ticked in pick); extra = more spell IDs
+	raidbuffs = { enabled = true, side = "LEFT", size = 18, max = 6, inRaid = false, which = "mine",
+		pick = { fortitude = true, spirit = true, shadow = true, wild = true, intellect = true,
+			might = true, wisdom = true, kings = true, light = true },
+		extra = {} },
 	missingBuff = true, -- mark players missing your class's long buff (Modules/MissingBuff.lua)
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
@@ -328,15 +332,73 @@ A.BUFF_FAMILIES = {
 	wild      = { 1126, 5232, 5234, 5286, 5287, 6756, 8907, 8908, 9884, 9885, 16878, 24752, 364163, 1291335, 1310503,
 		21849, 21850 }, -- Mark of the Wild, Gift of the Wild
 	intellect = { 1459, 1460, 1461, 10156, 10157, 13326, 16876, 364161, 23028 }, -- Arcane Intellect, Arcane Brilliance
-	blessings = { 19740, 19834, 19835, 19836, 19837, 19838, 25291, 25782, 25916, -- Might, Greater
-		19742, 19850, 19852, 19853, 19854, 25290, 25894, 25918, -- Wisdom, Greater
-		20217, 1213408, 25898, 26650 }, -- Kings, Greater, Light
+	might     = { 19740, 19834, 19835, 19836, 19837, 19838, 25291, 25782, 25916 }, -- Blessing of Might, Greater
+	wisdom    = { 19742, 19850, 19852, 19853, 19854, 25290, 25894, 25918 }, -- Blessing of Wisdom, Greater
+	kings     = { 20217, 1213408, 25898 }, -- Blessing of Kings, Greater
+	light     = { 26650 }, -- Blessing of Light
+}
+-- in the order the options list them; cast = the spell that tells us you can give it
+A.BUFF_FAMILY_INFO = {
+	{ key = "fortitude", label = "Fortitude", class = "Priest", cast = "Power Word: Fortitude" },
+	{ key = "spirit",    label = "Divine Spirit", class = "Priest", cast = "Divine Spirit" },
+	{ key = "shadow",    label = "Shadow Protection", class = "Priest", cast = "Shadow Protection" },
+	{ key = "wild",      label = "Mark of the Wild", class = "Druid", cast = "Mark of the Wild" },
+	{ key = "intellect", label = "Arcane Intellect", class = "Mage", cast = "Arcane Intellect" },
+	{ key = "might",     label = "Blessing of Might", class = "Paladin", cast = "Blessing of Might" },
+	{ key = "wisdom",    label = "Blessing of Wisdom", class = "Paladin", cast = "Blessing of Wisdom" },
+	{ key = "kings",     label = "Blessing of Kings", class = "Paladin", cast = "Blessing of Kings" },
+	{ key = "light",     label = "Blessing of Light", class = "Paladin", cast = "Blessing of Light" },
 }
 local RAID_BUFFS = {}
 for _, list in pairs(A.BUFF_FAMILIES) do
 	for _, id in ipairs(list) do RAID_BUFFS[id] = true end
 end
 A.RAID_BUFFS = RAID_BUFFS
+
+-- The families you can cast yourself (from your spellbook). Empty for classes without a raid buff.
+function A:MyBuffFamilies()
+	local mine = {}
+	for _, f in ipairs(A.BUFF_FAMILY_INFO) do
+		if #self:ResolveSpells(f.cast, true) > 0 then mine[f.key] = true end
+	end
+	return mine
+end
+
+-- The spell IDs the raid buff row shows, per the "which" setting. Classes with no raid buff of their own see all
+-- of them under "mine". Extra IDs are always added; the Aura filters' never-show list still hides spells.
+function A:RaidBuffSet()
+	local cfg = ns.db.auras.raidbuffs
+	local which = cfg.which or "mine"
+	local families
+	if which == "pick" then
+		families = cfg.pick or {}
+	elseif which == "mine" then
+		families = self:MyBuffFamilies()
+		if not next(families) then which = "all" end
+	end
+	local set = {}
+	for key, list in pairs(A.BUFF_FAMILIES) do
+		if which == "all" or families[key] then
+			for _, id in ipairs(list) do set[id] = true end
+		end
+	end
+	for _, id in ipairs(cfg.extra or {}) do
+		if tonumber(id) then set[tonumber(id)] = true end
+	end
+	return set
+end
+
+-- Learning a buff (or a new rank) changes "mine": rebuild then, not on every SPELLS_CHANGED.
+local mineKey
+ns:RegisterEvent("SPELLS_CHANGED", function()
+	if not ns.db or (ns.db.auras.raidbuffs.which or "mine") ~= "mine" then return end
+	local keys = {}
+	for key in pairs(A:MyBuffFamilies()) do keys[#keys + 1] = key end
+	table.sort(keys)
+	local k = table.concat(keys, ",")
+	if mineKey ~= nil and k ~= mineKey then A:Refresh() end
+	mineKey = k
+end)
 
 -- The raid buff row shows in a party (and solo); in a raid only when asked to.
 function A.RaidBuffsShown()
@@ -528,7 +590,9 @@ function A:BuildContainers(btn)
 		set[#set + 1] = c
 	end
 
-	if D.raidbuffs and D.raidbuffs.enabled then
+	local rbSet = D.raidbuffs and D.raidbuffs.enabled and self:RaidBuffSet() or nil
+	if rbSet and not next(rbSet) then rbSet = nil end
+	if rbSet then
 		local cfg = D.raidbuffs
 		local c = NewContainer(btn)
 		c:ClearAllPoints()
@@ -538,7 +602,7 @@ function A:BuildContainers(btn)
 		-- sorted by name: the same buff sits in the same column on every frame, and nothing shifts as timers run
 		AddGroup(c, "raidbuffs", "HELPFUL", cfg.max, RaidBuffInit(cfg.size),
 			AuraContainerSortMethod.NameOnly or AuraContainerSortMethod.Default,
-			hidden({ includeSpellIDs = RAID_BUFFS }), 1)
+			hidden({ includeSpellIDs = rbSet }), 1)
 		c:SetShown(A.RaidBuffsShown())
 		btn.raidBuffs = c
 		set[#set + 1] = c
@@ -554,10 +618,10 @@ function A:BuildContainers(btn)
 		-- long buffs (30-minute raid buffs) hidden by default; the "always show" list still shows them
 		-- the raid buff row has those: keep them out of this row while it shows
 		local own = lists
-		if D.raidbuffs and D.raidbuffs.enabled then
+		if rbSet then
 			local skip = {}
 			for id in pairs(lists.skip or {}) do skip[id] = true end
-			for id in pairs(RAID_BUFFS) do skip[id] = true end
+			for id in pairs(rbSet) do skip[id] = true end
 			own = { show = lists.show, hide = lists.hide, skip = skip }
 		end
 		set[#set + 1] = AddGroupContainer(btn, "buffs", filter, cfg, IconInit(cfg.size, cfg.swipe, cfg.stacks),

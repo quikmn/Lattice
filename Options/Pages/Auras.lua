@@ -37,6 +37,54 @@ local function IndicatorEditor(s, index)
 	s:Add(del, 26)
 end
 
+-- Advanced: more spells by name or ID in the raid buff row. Hiding one is the Aura filters' "Never show".
+local function RaidBuffExtras(s)
+	local cfg = ns.db.auras.raidbuffs
+	cfg.extra = cfg.extra or {}
+	W.Note(s, "Want another buff in the row, like Thorns or Blessing of Sanctuary? Add it here. To keep one out, put it on |cffffffffNever show|r on the Aura filters page.", T.muted)
+	local row = CreateFrame("Frame")
+	local box = W.EditBox(row, 220, 24)
+	box:SetPoint("LEFT")
+	local status = W.Text(row, T.fontSmall + 1, T.muted)
+	local add = W.Button(row, "Also show", function()
+		local ids = ns.Auras:ResolveSpells(box:GetText())
+		if #ids == 0 then
+			status:SetText("|cffef5d5dNo spell found. Use the spell ID for spells you don't know.|r")
+			return
+		end
+		local have = {}
+		for _, id in ipairs(cfg.extra) do have[id] = true end
+		for _, id in ipairs(ids) do if not have[id] then cfg.extra[#cfg.extra + 1] = id end end
+		box:SetText("")
+		ns:ApplySettings("auras")
+		O:RebuildPage("auras")
+	end, 100)
+	add:SetPoint("LEFT", box, "RIGHT", 8, 0)
+	status:SetPoint("LEFT", add, "RIGHT", 10, 0)
+	box:SetScript("OnEnterPressed", function() add:Click() end)
+	s:Add(row, 26)
+	if #cfg.extra > 0 then
+		local names = {}
+		for _, id in ipairs(cfg.extra) do
+			local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+			names[#names + 1] = (name or "Spell") .. " (" .. id .. ")"
+		end
+		local clearRow = CreateFrame("Frame")
+		local text = W.Text(clearRow, T.fontSmall + 1, T.text)
+		text:SetPoint("LEFT")
+		text:SetText("Also shown: " .. table.concat(names, ", "))
+		local clear = W.Button(clearRow, "Clear", function()
+			wipe(cfg.extra)
+			ns:ApplySettings("auras")
+			O:RebuildPage("auras")
+		end, 70, "danger")
+		clear:SetPoint("RIGHT", -6, 0)
+		text:SetPoint("RIGHT", clear, "LEFT", -8, 0)
+		text:SetJustifyH("LEFT")
+		s:Add(clearRow, 24)
+	end
+end
+
 O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Header(s, "Auras", "Buffs, debuffs and dispel highlights. Blizzard draws these for us, so they keep working in combat.")
 	W.Toggle(s, Bind("auras.enabled", "auras", { label = "Show auras on frames" }))
@@ -81,8 +129,27 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left swipe" }))
 	Pos(s, "auras.buffs", true)
 
-	W.Header(s, "Raid buffs", "Fortitude, Mark of the Wild, Arcane Intellect, Blessings and the like, from anyone, in a row beside each frame. In a party; in a raid only if you turn it on.")
+	W.Header(s, "Raid buffs", "Long buffs like Fortitude and Arcane Intellect in a row beside each frame, so you can see who needs a rebuff. In a party; in a raid only if you turn it on.")
 	W.Toggle(s, Bind("auras.raidbuffs.enabled", "auras", { label = "Show raid buffs beside the frames" }))
+	local function notPick() return ns.db.auras.raidbuffs.which ~= "pick" end
+	W.Dropdown(s, {
+		label = "Which buffs",
+		desc = "Only the ones I can cast: what you can rebuff yourself (all of them for classes without one).",
+		items = { { value = "mine", text = "Only the ones I can cast" }, { value = "all", text = "All raid buffs" },
+			{ value = "pick", text = "Let me pick" } },
+		get = function() return ns.db.auras.raidbuffs.which or "mine" end,
+		set = function(v)
+			ns.db.auras.raidbuffs.which = v
+			ns:ApplySettings("auras")
+			O:RebuildPage("auras")
+		end,
+	})
+	for _, f in ipairs(ns.Auras.BUFF_FAMILY_INFO) do
+		W.Toggle(s, Bind("auras.raidbuffs.pick." .. f.key, "auras", {
+			label = f.label .. " |cff8c8c8c(" .. f.class .. ")|r", disabled = notPick,
+		}))
+	end
+	RaidBuffExtras(s)
 	W.Dropdown(s, Bind("auras.raidbuffs.side", "auras", {
 		label = "Side",
 		items = { { value = "RIGHT", text = "Right of the frame" }, { value = "LEFT", text = "Left of the frame" } },

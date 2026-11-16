@@ -109,7 +109,8 @@ local function Encoder()
 	if E and E.SerializeCBOR and E.CompressString and E.EncodeBase64 then return E end
 end
 
-function P:Export(name)
+-- withCasting: also your click-casting and hover-cast keys (per character, so only taken by the same class).
+function P:Export(name, withCasting)
 	local E = Encoder()
 	if not E then return nil, "This client has no encoding API." end
 	local src = SV().profiles[name or DB:ActiveName()]
@@ -117,6 +118,11 @@ function P:Export(name)
 	local data = U.CopyTable(src)
 	U.StripDefaults(data, ns.Defaults)
 	local payload = { v = 1, addon = "Lattice", profile = data }
+	if withCasting and ns.char then
+		local _, class = UnitClass("player")
+		payload.casting = { class = class, bindings = U.CopyTable(ns.char.bindings or {}),
+			hover = U.CopyTable(ns.char.hover or {}) }
+	end
 	local ok, out = pcall(function()
 		return E.EncodeBase64(E.CompressString(E.SerializeCBOR(payload)))
 	end)
@@ -137,14 +143,41 @@ function P:Decode(str)
 	if not ok or type(payload) ~= "table" or payload.addon ~= "Lattice" or type(payload.profile) ~= "table" then
 		return nil, "The profile string is damaged or incomplete."
 	end
-	return payload.profile
+	return payload.profile, payload
 end
 
-function P:Import(str, name)
-	local data, err = self:Decode(str)
-	if not data then return false, err end
-	if not name or name == "" then return false, "Enter a name for the imported profile." end
-	if self:Exists(name) then return false, "A profile with that name already exists." end
+-- A free profile name: "Imported", "Imported 2", ...
+function P:FreeName(base)
+	base = (base and base ~= "") and base or "Imported"
+	if not self:Exists(base) then return base end
+	local i = 2
+	while self:Exists(base .. " " .. i) do i = i + 1 end
+	return base .. " " .. i
+end
+
+-- Import as a new profile and switch to it (your old one stays in the list). takeCasting: also replace your
+-- click-casting with the string's, if it has some for your class. Returns ok, name or error, and a casting note.
+function P:Import(str, name, takeCasting)
+	local data, payload = self:Decode(str)
+	if not data then return false, payload end
+	if name and name ~= "" and self:Exists(name) then return false, "A profile with that name already exists." end
+	name = (name and name ~= "") and name or self:FreeName("Imported")
 	SV().profiles[name] = data
-	return true
+	local note
+	local c = type(payload.casting) == "table" and payload.casting or nil
+	if takeCasting and c then
+		local _, class = UnitClass("player")
+		if c.class == class and type(c.bindings) == "table" then
+			ns.char.bindings = U.CopyTable(c.bindings)
+			ns.char.hover = type(c.hover) == "table" and U.CopyTable(c.hover) or {}
+			note = "Click-casting taken too."
+		else
+			note = "Click-casting not taken: it's for another class."
+		end
+	elseif c then
+		note = "The string also has click-casting; tick the box to take it."
+	end
+	self:Switch(name)
+	if note and ns.ApplySettings then ns:ApplySettings("clickcast") end
+	return true, name, note
 end

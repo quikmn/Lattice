@@ -32,7 +32,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 		msg.text:SetText((ok and "|cff62cf88" or "|cffef5d5d") .. text .. "|r")
 	end
 
-	W.Header(s, "Profiles", "A profile holds all settings except click-casting. Characters can share one.")
+	W.Header(s, "Profiles", "A profile holds all settings except click-casting (that's per character). Characters can share one.")
 	W.Dropdown(s, {
 		label = "Active profile",
 		items = ProfileItems,
@@ -108,12 +108,19 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	end
 
 	-- Import / export
-	W.Header(s, "Share", "Export a profile as text to share it, or paste someone's string to import it.")
+	W.Header(s, "Share", "Your whole setup as one string: layout, positions, sizes, colours, auras, indicators and filters. Send it to a friend, or paste someone's string to use their setup.")
 	local area = W.TextArea(nil, 520, 90)
 	s:Add(area, 90)
+	local withCasting, takeCasting = false, false
+	W.Toggle(s, {
+		label = "Include my click-casting",
+		desc = "Only players of your class can take it.",
+		get = function() return withCasting end,
+		set = function(v) withCasting = v end,
+	})
 	local ioRow = CreateFrame("Frame")
-	local exp = W.Button(ioRow, "Export active profile", function()
-		local str, err = P:Export()
+	local exp = W.Button(ioRow, "Export my setup", function()
+		local str, err = P:Export(nil, withCasting)
 		if str then
 			area.box:SetText(str)
 			area.box:HighlightText()
@@ -125,13 +132,22 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 	end, 170)
 	exp:SetPoint("LEFT")
 	s:Add(ioRow, 26)
-	InputRow(s, "Import the string above as a new profile named", "Import", function(name, box)
-		local ok, err = P:Import(area.box:GetText(), name)
+	W.Toggle(s, {
+		label = "Also take their click-casting",
+		desc = "Replaces your click-casting with theirs, if the string has some for your class.",
+		get = function() return takeCasting end,
+		set = function(v) takeCasting = v end,
+	})
+	local before = ns.Database:ActiveName()
+	InputRow(s, "Paste a string above, then import it (name optional)", "Import and use", function(name, box)
+		before = ns.Database:ActiveName()
+		local ok, result, note = P:Import(area.box:GetText(), name, takeCasting)
 		if ok then
 			box:SetText("")
-			say("Imported as " .. name .. ". Pick it under Active profile to use it.", true)
+			area.box:SetText("")
+			say("Now using " .. result .. ". Your old profile, " .. before .. ", is still under Active profile." .. (note and (" " .. note) or ""), true)
 		else
-			say(err)
+			say(result)
 		end
 	end, "accent")
 
