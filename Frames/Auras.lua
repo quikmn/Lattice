@@ -34,7 +34,7 @@ ns.Defaults.auras = {
 	-- the long class buffs (Fortitude, Mark of the Wild...) in their own row beside the frame, from anyone; party only
 	-- unless inRaid. side = RIGHT | LEFT (outside the frame).
 	-- which: "mine" (buffs you can cast) | "all" | "pick" (the families ticked in pick); extra = more spell IDs
-	raidbuffs = { enabled = true, side = "RIGHT", size = 18, max = 6, inRaid = false, which = "mine",
+	raidbuffs = { enabled = true, side = "LEFT", size = 18, max = 6, inRaid = false, which = "mine",
 		pick = { fortitude = true, spirit = true, shadow = true, wild = true, intellect = true,
 			might = true, wisdom = true, kings = true, light = true },
 		extra = {} },

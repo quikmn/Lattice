@@ -7,7 +7,6 @@
 - Sharing a setup: Export my setup gives one string with everything (layout, positions, sizes, colours, auras, indicators, filters). Paste a friend's string and click Import and use: it becomes a new profile and is used straight away; your old profile stays in the list. Tick Include my click-casting to share that too; only players of the same class can take it.
 - Low health warning: the empty part of a player's health bar turns red when they drop below 30% health, so players in danger stand out. On by default; turn it off or change the % on the Appearance page.
 - Seconds left on buff and debuff icons: turn on "Seconds left on buff and debuff icons" on the Auras page to see the time count down as numbers. Off by default.
-- The raid buff row now sits right of the frame by default. On the left, most of it was off the screen with the frames in their starting place. Prefer the left? Change Side under Raid buffs (Auras page).
 - Settings window: settings that depend on another one grey out as soon as you turn that one off, and come back when you turn it on. Many labels and help texts are clearer. The large raid layout settings moved from General to Layout. Missing buff mark has its own heading on the Auras page.
 - Resetting a profile, deleting a profile, removing an indicator, resetting the aura filters and resetting positions ask for a second click first. To delete a profile, pick it, then click Delete it.
 - Turning on "Hide Blizzard's party and raid frames" works straight away, without a /reload.
