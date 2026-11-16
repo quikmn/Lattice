@@ -40,7 +40,9 @@ ns.Defaults.auras = {
 	missingBuff = true, -- mark players missing your class's long buff (Modules/MissingBuff.lua)
 	boss    = { enabled = true, size = 20, point = "CENTER", x = 0, y = 0 },
 	defensive = { enabled = true, size = 16, point = "LEFT", x = 2, y = 0 },
+	-- icon: a big icon of the debuff you can dispel in the middle of the frame, edged in its type's colour, pulsing
 	dispel  = { enabled = true, style = "border", onlyMine = true, thickness = 2,
+		icon = true, iconSize = 24, iconPulse = true,
 		colors = {
 			Magic   = { 0.20, 0.60, 1.00, 1 },
 			Curse   = { 0.60, 0.00, 1.00, 1 },
@@ -222,6 +224,49 @@ function A:DispelTextureOptions(forIcon)
 		showWhenHarmful = true,
 		customDispelColorMap = map,
 	}
+end
+
+-- Big dispel icon: the debuff's icon with a thick edge in its dispel colour, and a soft pulse around it so it
+-- catches the eye. The colours come from the client (the debuff's type is hidden from us in combat).
+local function DispelIconInit(health, size, pulse)
+	return function(b)
+		b:SetSize(size, size)
+		NoMouse(b)
+		b:ClearAllPoints()
+		b:SetPoint("CENTER", health, "CENTER", 0, 0)
+		if b.SetFrameLevel then b:SetFrameLevel(b:GetFrameLevel() + 6) end
+		local opts = A:DispelTextureOptions(true)
+		local edge = b:CreateTexture(nil, "BACKGROUND")
+		edge:SetTexture(U.WHITE)
+		edge:SetPoint("TOPLEFT", -2, 2)
+		edge:SetPoint("BOTTOMRIGHT", 2, -2)
+		local icon = b:CreateTexture(nil, "ARTWORK")
+		icon:SetAllPoints()
+		icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+		b:SetIcon(icon)
+		if b.AddDispelTypeTexture then pcall(b.AddDispelTypeTexture, b, edge, opts) end
+		AddCooldown(b, true)
+		if pulse then pcall(function()
+			-- the glow lives on its own frame so its alpha can be animated
+			local holder = CreateFrame("Frame", nil, b)
+			holder:SetPoint("TOPLEFT", -6, 6)
+			holder:SetPoint("BOTTOMRIGHT", 6, -6)
+			holder:SetFrameLevel(math.max(0, b:GetFrameLevel() - 1))
+			local glow = holder:CreateTexture(nil, "BACKGROUND")
+			glow:SetTexture(U.WHITE)
+			glow:SetAllPoints()
+			if b.AddDispelTypeTexture then pcall(b.AddDispelTypeTexture, b, glow, opts) end
+			local ag = holder:CreateAnimationGroup()
+			ag:SetLooping("BOUNCE")
+			local a = ag:CreateAnimation("Alpha")
+			a:SetFromAlpha(0.15)
+			a:SetToAlpha(0.65)
+			a:SetDuration(0.6)
+			a:SetSmoothing("IN_OUT")
+			holder:SetAlpha(0.15)
+			ag:Play()
+		end) end
+	end
 end
 
 -- Dispel highlight: the slot frame covers the health bar; its textures are
@@ -636,6 +681,16 @@ function A:BuildContainers(btn)
 	if D.dispel.enabled then
 		local filter = D.dispel.onlyMine and "HARMFUL|RAID" or "HARMFUL|RAID_PLAYER_DISPELLABLE"
 		slots:AddAuraSlot("dispel", filter, { initializeFrame = DispelInit(v), candidateFilters = hidden() })
+		anySlot = true
+	end
+	-- the big icon follows the same "who can dispel it" choice; it works even with the highlight off
+	if D.dispel.icon then
+		local filter = D.dispel.onlyMine and "HARMFUL|RAID" or "HARMFUL|RAID_PLAYER_DISPELLABLE"
+		slots:AddAuraSlot("dispelIcon", filter, {
+			initializeFrame = DispelIconInit(v.health, D.dispel.iconSize or 24, D.dispel.iconPulse ~= false),
+			candidateFilters = hidden(),
+			sortMethod = AuraContainerSortMethod.UnitFrameDebuff,
+		})
 		anySlot = true
 	end
 

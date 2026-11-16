@@ -97,6 +97,18 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Header(s, "Dispel highlight", "Colors the frame when a player has a debuff you can remove.")
 	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Highlight dispellable debuffs" }))
 	W.Toggle(s, Bind("auras.dispel.onlyMine", "auras", { label = "Only debuffs I can dispel myself" }))
+	W.Toggle(s, Bind("auras.dispel.icon", "auras", {
+		label = "Big icon in the middle of the frame",
+		desc = "The debuff you can dispel, large, edged in its type's colour (blue Magic, purple Curse, green Poison, brown Disease).",
+	}))
+	W.Toggle(s, Bind("auras.dispel.iconPulse", "auras", {
+		label = "Pulse around the big icon",
+		disabled = function() return not ns.db.auras.dispel.icon end,
+	}))
+	W.Slider(s, Bind("auras.dispel.iconSize", "auras", {
+		label = "Big icon size", min = 14, max = 40, step = 1,
+		disabled = function() return not ns.db.auras.dispel.icon end,
+	}))
 	W.Dropdown(s, Bind("auras.dispel.style", "auras", {
 		label = "Style",
 		items = { { value = "border", text = "Colored border" }, { value = "both", text = "Border and a light tint" },
