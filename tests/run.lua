@@ -732,6 +732,27 @@ step("aura icons grow into the frame from any corner", function()
 	check(A.InwardGrow("CENTER") == "RIGHT", "center should grow right")
 end)
 
+step("player tooltip on mouseover, in combat too unless turned off", function()
+	local btn
+	for _, b in ipairs(ns.Buttons.all) do if b.unit then btn = b; break end end
+	check(btn, "no frame with a unit to hover")
+	local shown
+	rawset(GameTooltip, "SetUnit", function(_, u) shown = u end)
+	local enter, leave = btn:GetScript("OnEnter"), btn:GetScript("OnLeave")
+	MOCK.combat = true
+	enter(btn); leave(btn)
+	check(shown == btn.unit, "no tooltip in combat")
+	shown = nil
+	ns.db.general.tooltipsInCombat = false
+	enter(btn); leave(btn)
+	check(shown == nil, "tooltip shown in combat with Tooltip in combat too off")
+	MOCK.combat = false
+	enter(btn); leave(btn)
+	check(shown == btn.unit, "no tooltip out of combat")
+	ns.db.general.tooltipsInCombat = nil
+	rawset(GameTooltip, "SetUnit", nil)
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default

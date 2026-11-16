@@ -31,6 +31,7 @@ ns.Defaults = {
 		rangeBySpell = true,           -- fade by your heal's range (40 yd) instead of the game's rough check
 		smoothBars = true,
 		tooltips = true,
+		tooltipsInCombat = true,       -- the player tooltip in combat too (Blizzard's frames show it)
 		showPets = false,              -- pet frames (hunter, warlock, ...) in their own movable block
 		guessTank = true,              -- no roles assigned: guess the tank (Modules/Roles.lua)
 		tankFrames = true,             -- a block with each tank (and what it targets), in raids

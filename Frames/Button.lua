@@ -166,7 +166,8 @@ function B:Setup(btn)
 	btn:HookScript("OnEnter", function(self)
 		local v = self.visual
 		if Appearance().mouseoverHighlight then v.hover:Show() end
-		if self.unit and not InCombatLockdown() and ns.db.general.tooltips ~= false then
+		local g = ns.db.general
+		if self.unit and g.tooltips ~= false and (g.tooltipsInCombat ~= false or not InCombatLockdown()) then
 			GameTooltip_SetDefaultAnchor(GameTooltip, self)
 			GameTooltip:SetUnit(self.unit)
 			GameTooltip:Show()

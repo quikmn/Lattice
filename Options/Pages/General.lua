@@ -26,8 +26,12 @@ O:RegisterPage("general", "General", nil, function(s)
 	}))
 	W.Toggle(s, Bind("general.tooltips", "appearance", {
 		label = "Player tooltip on mouseover",
-		desc = "Shown out of combat only.",
 		disabled = off,
+	}))
+	W.Toggle(s, Bind("general.tooltipsInCombat", "appearance", {
+		label = "Tooltip in combat too",
+		desc = "Off: the tooltip shows only out of combat, so it never covers anything mid-fight.",
+		disabled = function() return off() or ns.db.general.tooltips == false end,
 	}))
 
 	W.Header(s, "Range")
