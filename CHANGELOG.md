@@ -4,6 +4,7 @@
 
 - Raid buffs show only the ones you can cast by default: a priest sees Fortitude, Divine Spirit and Shadow Protection, a mage Arcane Intellect. Classes without a raid buff see all of them. Change it under Which buffs (Auras page): only mine, all, or pick them one by one. Want another buff in the row, like Thorns? Add it by name. To keep one out, put it on Never show (Aura filters page).
 - Sharing a setup: Export my setup gives one string with everything (layout, positions, sizes, colours, auras, indicators, filters). Paste a friend's string and click Import and use: it becomes a new profile and is used straight away; your old profile stays in the list. Tick Include my click-casting to share that too; only players of the same class can take it.
+
 ## v0.5.0 (2026-11-16)
 
 - Settings window: a proper scroll bar you can grab and drag, or click above or below it to jump a page. The mouse wheel no longer changes sliders, so scrolling down the page never changes a setting by accident. Type a number in the box beside a slider for exact values.
