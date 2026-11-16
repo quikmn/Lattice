@@ -26,15 +26,8 @@ if [ -z "$id" ]; then
 fi
 echo "CurseForge game version $version -> id $id"
 
-# changelog: commit subjects since the previous tag
-tag="${GITHUB_REF_NAME}"
-prev="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
-if [ -n "$prev" ]; then
-  changelog="$(git log --no-merges --format='- %s' "$prev..$tag" | grep -v -E '^- v?[0-9]+\.[0-9]+\.[0-9]+$' || true)"
-else
-  changelog="- First release"
-fi
-[ -n "$changelog" ] || changelog="- Small fixes"
+# changelog: this version's section of CHANGELOG.md (falls back to commit subjects)
+changelog="$(bash "$(dirname "$0")/release-notes.sh" "${GITHUB_REF_NAME}")"
 
 name="$(basename "$zip" .zip)"
 meta="$(jq -n --arg c "$changelog" --arg n "$name" --argjson g "[$id]" \

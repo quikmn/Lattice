@@ -19,6 +19,12 @@ jobs:
       - uses: BigWigsMods/packager@v2
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release notes from CHANGELOG.md (GitHub release page)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash .github/release-notes.sh "$GITHUB_REF_NAME" > .release/notes.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file .release/notes.md
       - name: Upload to CurseForge (project 1804904, WoW Forever)
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
