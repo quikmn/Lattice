@@ -92,7 +92,7 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	s:Add(keyRow, 46)
 
 	W.Dropdown(s, { label = "Who it's for",
-		desc = "Friend for heals and buffs, enemy for damage, either for spells that do both (Penance, Dispel Magic).",
+		desc = "Friend for heals and buffs, enemy for damage, either for spells that do both (Holy Shock, Dispel Magic).",
 		items = { { value = "help", text = "A friend" }, { value = "harm", text = "An enemy" }, { value = "any", text = "Friend or enemy" } },
 		get = function() return draft.side end,
 		set = function(v)
