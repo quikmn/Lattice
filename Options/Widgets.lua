@@ -413,7 +413,7 @@ function W.Dropdown(stack, opt)
 	b:SetScript("OnLeave", function() bg:SetVertexColor(rgba(T.surface)) end)
 
 	local function items()
-		return type(opt.items) == "function" and opt.items() or opt.items
+		if type(opt.items) == "function" then return opt.items() or {} end return opt.items or {}
 	end
 
 	function f:Refresh()
