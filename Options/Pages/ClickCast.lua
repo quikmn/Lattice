@@ -34,7 +34,7 @@ O.HelpfulSpells = HelpfulSpells
 local MOD_ITEMS = {
 	{ value = "", text = "No modifier" }, { value = "shift", text = "Shift" }, { value = "ctrl", text = "Ctrl" },
 	{ value = "alt", text = "Alt" }, { value = "ctrl-shift", text = "Ctrl + Shift" }, { value = "alt-shift", text = "Alt + Shift" },
-	{ value = "alt-ctrl", text = "Alt + Ctrl" },
+	{ value = "alt-ctrl", text = "Alt + Ctrl" }, { value = "alt-ctrl-shift", text = "Alt + Ctrl + Shift" },
 }
 
 O:RegisterPage("clickcast", "Click-casting", nil, function(s)
@@ -80,6 +80,7 @@ O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 
 	-- Add form
 	W.Header(s, "Add a binding")
+	local feedback -- the line under Add binding (made below)
 	local draft = { button = 1, mods = "", action = "spell", value = nil, macro = "" }
 
 	W.Dropdown(s, { label = "Mouse button", items = CC.BUTTONS,
@@ -106,7 +107,10 @@ O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 		if ids[1] then
 			draft.value = ids[#ids] -- last match is usually the highest rank
 			draft.action = "spell"
+			feedback.text:SetText(" ")
 			s:RefreshAll()
+		else
+			feedback.text:SetText("|cffff7070No spell found. Type a spell you know, like Renew, or its ID, like 139.|r")
 		end
 		self:ClearFocus()
 	end)
@@ -121,7 +125,6 @@ O:RegisterPage("clickcast", "Click-casting", nil, function(s)
 	macro.box:SetScript("OnTextChanged", function(self) draft.macro = self:GetText() end)
 	s:Add(macroRow, 82)
 
-	local feedback
 	local addBtn = W.Button(nil, "Add binding", function()
 		local binding = { button = draft.button, mods = draft.mods, action = draft.action }
 		if draft.action == "spell" then

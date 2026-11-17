@@ -59,6 +59,7 @@ ns.Defaults.auras = {
 		-- Always show (from anyone): cooldowns a healer wants to see
 		[10060] = "show", -- Power Infusion
 		[29166] = "show", -- Innervate
+		[6346] = "show", -- Fear Ward (10 minutes: "Hide long buffs" would drop it from the buff row)
 		[1022] = "show", [5599] = "show", [10278] = "show", -- Blessing of Protection
 		[20707] = "show", [20762] = "show", [20763] = "show", [20764] = "show", [20765] = "show", -- Soulstone Resurrection
 		-- Always show: raid debuffs that need action (only where the game allows it, see CanFilterDebuff)

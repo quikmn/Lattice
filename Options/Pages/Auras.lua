@@ -62,7 +62,7 @@ local function RaidBuffExtras(s)
 	local add = W.Button(row, "Also show", function()
 		local ids = ns.Auras:ResolveSpells(box:GetText())
 		if #ids == 0 then
-			status:SetText("|cffef5d5dNo spell found. Use the spell ID for spells you don't know.|r")
+			status:SetText("|cffef5d5dNo spell found. Type a spell you know, or its ID, like 467 for Thorns.|r")
 			return
 		end
 		local have = {}
@@ -247,7 +247,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		local text = box:GetText()
 		local ids = ns.Auras:ResolveSpells(text)
 		if #ids == 0 then
-			status:SetText("|cffff7070No spell found. Check the name, or use spell IDs.|r")
+			status:SetText("|cffff7070No spell found. Type a spell you know, like Renew, or its ID, like 139.|r")
 			return
 		end
 		local name = tonumber((text:match("^%s*([^,]+)") or "")) and ("Spell " .. ids[1]) or text:match("^%s*([^,]+)")

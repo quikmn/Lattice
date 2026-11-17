@@ -243,14 +243,26 @@ function T:Start(size)
 	Arrange()
 	-- Hide the real frames while previewing so they don't overlap.
 	ns.Headers:SetPreviewHidden(true)
+	ns:Fire("PreviewChanged", true)
 end
 
 function T:Stop()
+	local was = active
 	active = false
 	self.manual = false
 	if holder then holder:Hide() end
 	ns.Headers:SetPreviewHidden(false)
+	if was then ns:Fire("PreviewChanged", false) end
 end
+
+-- The preview hides the real frames: never take that into a fight.
+ns:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+	if active then
+		local manual = T.manual
+		T:Stop()
+		if manual then ns:Print("Preview stopped: combat started.") end
+	end
+end)
 
 function T:Toggle()
 	if active then self:Stop() else self.manual = true; self:Start() end

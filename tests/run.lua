@@ -795,6 +795,68 @@ step("player tooltip on mouseover, in combat too unless turned off", function()
 	rawset(GameTooltip, "SetUnit", nil)
 end)
 
+step("Fear Ward is on Always show by default (Hide long buffs would drop it)", function()
+	check(ns.Defaults.auras.lists[6346] == "show", "Fear Ward not on the default Always show list")
+	local saved = ns.db.auras.lists
+	ns.db.auras.lists = { [6346] = "show" }
+	local sets = ns.Auras.ListSets(ns.db.auras.lists)
+	check(sets.show and sets.show[6346], "Fear Ward not in the show set")
+	ns.db.auras.lists = saved
+end)
+
+step("lock and unlock: explicit commands, chat line, combat drops a held box", function()
+	local M = ns.Mover
+	if M:IsUnlocked() then M:SetUnlocked(false, true) end
+	local synced = 0
+	ns:Listen("MoverChanged", function() synced = synced + 1 end)
+	SlashCmdList.LATTICE("lock")
+	check(not M:IsUnlocked(), "/lattice lock unlocked the frames")
+	SlashCmdList.LATTICE("unlock")
+	check(M:IsUnlocked(), "/lattice unlock didn't unlock")
+	SlashCmdList.LATTICE("unlock")
+	check(M:IsUnlocked(), "/lattice unlock twice locked again")
+	check(synced == 1, "window not told about the change (" .. synced .. ")")
+	local a = M:GetAnchor("party")
+	local stopped = false
+	rawset(a, "StopMovingOrSizing", function() stopped = true end)
+	a.overlay:GetScript("OnDragStart")(a.overlay)
+	check(a.moving, "drag didn't start")
+	MOCK.Fire("PLAYER_REGEN_DISABLED")
+	check(not M:IsUnlocked() and not a.moving and stopped, "combat didn't lock and drop the held box")
+	check(not ns.TestMode:IsActive(), "preview from unlocking still up in combat")
+	rawset(a, "StopMovingOrSizing", nil)
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+end)
+
+step("preview stops when combat starts (it hides the real frames)", function()
+	ns.TestMode:Toggle()
+	check(ns.TestMode:IsActive(), "preview didn't start")
+	MOCK.Fire("PLAYER_REGEN_DISABLED")
+	check(not ns.TestMode:IsActive(), "preview still up in combat")
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+end)
+
+step("imported click-casting and hover keys are cleaned", function()
+	local b = ns.ClickCast.CleanBindings({
+		{ button = 1, mods = "SHIFT", action = "spell", value = "774" },
+		{ button = 9, action = "target" }, { button = 2, action = "explode" }, { button = 3, action = "spell" },
+		{ button = 4, action = "macro", value = "" }, "junk", { action = "target" },
+	})
+	check(#b == 1 and b[1].mods == "shift" and b[1].value == 774, "bad bindings kept: " .. #b)
+	local h = ns.HoverCast.CleanList({ { key = "shift-1", action = "spell", value = 2061 }, { key = "", action = "spell", value = 1 },
+		{ key = "F", action = "nuke" }, 5 })
+	check(#h == 1 and h[1].key == "SHIFT-1", "bad hover keys kept: " .. #h)
+	check(#ns.ClickCast.CleanBindings(nil) == 0 and #ns.HoverCast.CleanList("x") == 0, "non-tables not handled")
+end)
+
+step("blank profile names are refused; chat escapes typed text", function()
+	check(not ns.Profiles:Create("   "), "blank profile name accepted")
+	check(not ns.Profiles:Rename(ns.Database:ActiveName(), ""), "blank rename accepted")
+	check(ns.Escape("a|cffb") == "a||cffb", "| not escaped")
+	SlashCmdList.LATTICE("hide |cffnothing")
+	SlashCmdList.LATTICE("show")
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default

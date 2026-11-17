@@ -46,13 +46,19 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 		set = function(v) P:Switch(v) end,
 	})
 
+	-- why a name was refused
+	local function badName(name)
+		if not name or not name:find("%S") then return "Type a name first, like Healer." end
+		return "There is already a profile called " .. name .. ". Pick another name."
+	end
+
 	InputRow(s, "New profile with default settings", "Create", function(name, box)
 		if P:Create(name, nil) then
 			box:SetText("")
 			say("Created and switched to " .. name .. ".", true, true)
 			P:Switch(name)
 		else
-			say("Pick a name that isn't used yet.")
+			say(badName(name))
 		end
 	end)
 	InputRow(s, "Copy the active profile as", "Copy", function(name, box)
@@ -61,7 +67,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 			say("Copied to " .. name .. ". You're still using " .. ns.Database:ActiveName() .. ".", true, true)
 			O:RebuildPage("profiles")
 		else
-			say("Pick a name that isn't used yet.")
+			say(badName(name))
 		end
 	end)
 	InputRow(s, "Rename the active profile to", "Rename", function(name, box)
@@ -70,7 +76,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 			say("Renamed to " .. name .. ".", true, true)
 			O:RebuildPage("profiles")
 		else
-			say("Pick a name that isn't used yet.")
+			say(badName(name))
 		end
 	end)
 
@@ -150,7 +156,7 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 			area.box:SetText(str)
 			area.box:HighlightText()
 			area.box:SetFocus()
-			say("Copied into the box above. Press Ctrl+C to copy.", true)
+			say("The string is selected in the box above. Press Ctrl+C to copy it.", true)
 		else
 			say(err)
 		end

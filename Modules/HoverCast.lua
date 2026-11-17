@@ -81,6 +81,22 @@ function HC:ApplyAll()
 	end)
 end
 
+-- Hover keys from an import string: keep the ones that make sense, in a fresh table.
+function HC.CleanList(list)
+	local out = {}
+	for _, h in ipairs(type(list) == "table" and list or {}) do
+		local key = type(h) == "table" and type(h.key) == "string" and HC.NormalizeKey(h.key)
+		local ok = key and (h.action == "spell" and tonumber(h.value) ~= nil
+			or h.action == "macro" and type(h.value) == "string" and h.value ~= "")
+		if ok then
+			out[#out + 1] = { key = key, action = h.action, value = h.action == "spell" and tonumber(h.value) or h.value,
+				fallback = h.fallback ~= false }
+		end
+	end
+	table.sort(out, function(a, b) return a.key < b.key end)
+	return out
+end
+
 function HC:Find(key)
 	for i, h in ipairs(self:List()) do
 		if h.key == key then return i end

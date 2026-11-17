@@ -93,6 +93,7 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 		get = function() return draft.value end,
 		set = function(v) draft.value = v; draft.action = "spell" end })
 
+	local feedback -- the line under the add button (made below)
 	local spellRow = CreateFrame("Frame")
 	local spellLabel = W.Text(spellRow, T.font, T.text)
 	spellLabel:SetPoint("TOPLEFT")
@@ -104,7 +105,10 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 		if ids[1] then
 			draft.value = ids[#ids]
 			draft.action = "spell"
+			feedback.text:SetText(" ")
 			s:RefreshAll()
+		else
+			feedback.text:SetText("|cffff7070No spell found. Type a spell you know, like Flash Heal, or its ID, like 2061.|r")
 		end
 		self:ClearFocus()
 	end)
@@ -113,7 +117,6 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	W.Toggle(s, { label = "If nobody is under the mouse, cast on my friendly target",
 		get = function() return draft.fallback end, set = function(v) draft.fallback = v end })
 
-	local feedback
 	local add = W.Button(nil, "Add hover-cast key", function()
 		if not draft.key then
 			feedback.text:SetText("|cffff7070Click the key box and press a key first.|r")

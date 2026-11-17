@@ -26,7 +26,7 @@ function P:Switch(name)
 end
 
 function P:Create(name, copyFrom)
-	if not name or name == "" or self:Exists(name) then return false end
+	if type(name) ~= "string" or not name:find("%S") or self:Exists(name) then return false end
 	if copyFrom and self:Exists(copyFrom) then
 		SV().profiles[name] = U.CopyTable(SV().profiles[copyFrom])
 	else
@@ -50,7 +50,7 @@ function P:Delete(name)
 end
 
 function P:Rename(old, new)
-	if not self:Exists(old) or self:Exists(new) or not new or new == "" then return false end
+	if type(new) ~= "string" or not new:find("%S") or not self:Exists(old) or self:Exists(new) then return false end
 	SV().profiles[new] = SV().profiles[old]
 	SV().profiles[old] = nil
 	for _, char in pairs(SV().chars) do
@@ -168,8 +168,11 @@ function P:Import(str, name, takeCasting)
 	if takeCasting and c then
 		local _, class = UnitClass("player")
 		if c.class == class and type(c.bindings) == "table" then
-			ns.char.bindings = U.CopyTable(c.bindings)
-			ns.char.hover = type(c.hover) == "table" and U.CopyTable(c.hover) or {}
+			-- a pasted string is untrusted: keep only bindings Lattice can apply
+			ns.char.bindings = ns.ClickCast.CleanBindings(c.bindings)
+			ns.char.hover = ns.HoverCast.CleanList(c.hover)
+			ns.ClickCast:Sort()
+			if ns.HoverCast.ApplyAll then ns.HoverCast:ApplyAll() end
 			note = "Click-casting taken too."
 		else
 			note = "Click-casting not taken: it's for another class."

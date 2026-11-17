@@ -148,6 +148,24 @@ function CC:ApplyAll()
 	end)
 end
 
+-- Bindings from an import string: keep the ones that make sense, in a fresh table.
+local VALID_ACTION = {}
+for _, a in ipairs(CC.ACTIONS) do VALID_ACTION[a.value] = true end
+function CC.CleanBindings(list)
+	local out = {}
+	for _, b in ipairs(type(list) == "table" and list or {}) do
+		local button = type(b) == "table" and tonumber(b.button)
+		local ok = button and button >= 1 and button <= 5 and button == math.floor(button) and VALID_ACTION[b.action]
+		if ok and b.action == "spell" then ok = tonumber(b.value) ~= nil end
+		if ok and b.action == "macro" then ok = type(b.value) == "string" and b.value ~= "" end
+		if ok then
+			out[#out + 1] = { button = button, mods = CC.NormalizeMods(type(b.mods) == "string" and b.mods or ""),
+				action = b.action, value = b.action == "spell" and tonumber(b.value) or b.value }
+		end
+	end
+	return out
+end
+
 -- Validation used by the options page.
 function CC:FindConflict(button, mods, ignoreIndex)
 	mods = CC.NormalizeMods(mods)

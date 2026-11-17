@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fear Ward is on Always show by default, so a priest sees it on the tank. It lasts 10 minutes, and "Hide long buffs" (over 5 minutes) kept it out of the buff row.
+- Fix: a preview left on hid your real frames, even in combat. The preview now stops when combat starts and says so in chat.
+- `/lattice unlock` and `/lattice lock` do what they say (before, both just switched), and say so in chat. Frames lock when combat starts, also while you are holding a box; the settings window's Unlock and Preview buttons always show the current state.
+- Taking click-casting from a shared string keeps only bindings Lattice can use, and hover-cast keys from it work at once, without a /reload.
+- Clearer messages: "No spell found" gives an example name and ID, a blank profile name says so, and typing a spell that isn't found under Click-casting or Hover-casting now says so. Replacing the aura filters from text asks for a second click, and importing them says in chat how many were added.
+
 - Settings: text boxes (macro, import/export) get the same draggable scroll bar, and the mouse wheel over them scrolls the page unless you are typing in them. Scrolling stops on whole pixels so text stays sharp, and an open dropdown list closes when the page scrolls.
 - The player tooltip now shows in combat too, like Blizzard's frames. To keep it out of fights, turn off Tooltip in combat too (General page).
 - Fix: buffs like Renew could vanish when moved to the top-left corner. They grew out of the frame and sat under the raid buff row. Buff and debuff icons now grow into the frame from whichever corner they are in ("Into the frame", the new default under Grow towards).

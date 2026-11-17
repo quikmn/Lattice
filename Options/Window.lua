@@ -82,17 +82,11 @@ local function CreateWindow()
 	local feedback = W.Button(side, "Feedback / report a bug", function() ns.ShowFeedback() end, SIDEBAR_W - 16)
 	feedback:SetPoint("BOTTOMLEFT", 8, 76)
 
-	local preview = W.Button(side, "Preview frames", function(self)
-		ns.TestMode:Toggle()
-		self:SetText(ns.TestMode:IsActive() and "Stop preview" or "Preview frames")
-	end, SIDEBAR_W - 16)
+	local preview = W.Button(side, "Preview frames", function() ns.TestMode:Toggle() end, SIDEBAR_W - 16)
 	preview:SetPoint("BOTTOMLEFT", 8, 44)
 	f.previewButton = preview
 
-	local unlock = W.Button(side, "Unlock frames", function(self)
-		ns.Mover:Toggle()
-		self:SetText(ns.Mover:IsUnlocked() and "Lock frames" or "Unlock frames")
-	end, SIDEBAR_W - 16)
+	local unlock = W.Button(side, "Unlock frames", function() ns.Mover:Toggle() end, SIDEBAR_W - 16)
 	unlock:SetPoint("BOTTOMLEFT", 8, 12)
 	f.unlockButton = unlock
 
@@ -117,9 +111,15 @@ local function CreateWindow()
 		W.ClosePopup()
 		if ns.TestMode:IsActive() and not ns.TestMode.manual then ns.TestMode:Stop() end
 	end)
-	f:SetScript("OnShow", function()
+	-- the buttons follow the state, whatever changed it (slash command, combat, the other button)
+	local function syncButtons()
 		f.previewButton:SetText(ns.TestMode:IsActive() and "Stop preview" or "Preview frames")
 		f.unlockButton:SetText(ns.Mover:IsUnlocked() and "Lock frames" or "Unlock frames")
+	end
+	ns:Listen("PreviewChanged", syncButtons)
+	ns:Listen("MoverChanged", syncButtons)
+	f:SetScript("OnShow", function()
+		syncButtons()
 		if currentPage and pages[currentPage].stack then pages[currentPage].stack:RefreshAll() end
 	end)
 	W.CloseOnEscape(f) -- not UISpecialFrames, see there

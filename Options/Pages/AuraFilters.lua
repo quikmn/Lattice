@@ -59,7 +59,7 @@ O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
 		local text = box:GetText()
 		local ids = A:ResolveSpells(text)
 		if #ids == 0 then
-			status:SetText("|cffef5d5dNo spell found. Use the spell ID for spells you don't know.|r")
+			status:SetText("|cffef5d5dNo spell found. Type a spell you know, like Flurry, or its ID, like 12966.|r")
 			return
 		end
 		for _, id in ipairs(ids) do A:SetListMode(id, mode, true) end
@@ -104,8 +104,8 @@ O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
 		area.box:SetText(A:ExportLists())
 		area.box:HighlightText()
 		area.box:SetFocus()
-		msg.text:SetText("|cff62cf88Copied into the box. Press Ctrl+C to copy.|r")
-	end, 90)
+		msg.text:SetText("|cff62cf88The list is selected in the box. Press Ctrl+C to copy it.|r")
+	end, 80)
 	exp:SetPoint("LEFT")
 	local function import(replace)
 		local n, bad = A:ImportLists(area.box:GetText(), replace)
@@ -113,14 +113,16 @@ O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
 			msg.text:SetText("|cffef5d5dNothing to import. Paste lines like \"hide 12966\" into the box.|r")
 			return
 		end
+		local skipped = ""
 		if #bad > 0 then
-			ns:Printf("Aura filters: %d line(s) skipped (unknown spell or missing show/hide): %s", #bad, table.concat(bad, " | "))
+			skipped = string.format(" %d line(s) skipped (unknown spell or missing show/hide): %s", #bad, ns.Escape(table.concat(bad, " / ")))
 		end
+		ns:Printf("Aura filters: %d spell(s) %s.%s", n, replace and "now make up the lists" or "added", skipped)
 		Rebuild()
 	end
 	local addBtn = W.Button(ioRow, "Add from text", function() import(false) end, 120, "accent")
 	addBtn:SetPoint("LEFT", exp, "RIGHT", 6, 0)
-	local repl = W.Button(ioRow, "Replace with text", function() import(true) end, 140)
+	local repl = W.ConfirmButton(ioRow, "Replace with text", function() import(true) end, 156)
 	repl:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)
 	local reset = W.ConfirmButton(ioRow, "Reset to defaults", function() A:ResetLists(); Rebuild() end, 170)
 	reset:SetPoint("LEFT", repl, "RIGHT", 6, 0)

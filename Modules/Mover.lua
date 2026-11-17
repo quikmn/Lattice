@@ -34,15 +34,24 @@ function Mover:GetAnchor(key, label)
 	overlay:EnableMouse(true)
 	overlay:RegisterForDrag("LeftButton")
 	overlay:SetScript("OnDragStart", function()
-		if unlocked and not InCombatLockdown() then a:StartMoving() end
+		if unlocked and not InCombatLockdown() then
+			a:StartMoving()
+			a.moving = true
+		end
 	end)
-	overlay:SetScript("OnDragStop", function()
-		a:StopMovingOrSizing()
-		Mover:SavePosition(a)
-	end)
+	overlay:SetScript("OnDragStop", function() Mover:StopDrag(a) end)
 	anchors[key] = a
 	self:RestorePosition(a)
 	return a
+end
+
+-- End a drag and keep where the box was dropped. Also run when the frames lock while a box is still held
+-- (combat starting): the box carries the secure headers, so it must not keep moving into combat.
+function Mover:StopDrag(a)
+	if not a.moving then return end
+	a.moving = nil
+	a:StopMovingOrSizing()
+	self:SavePosition(a)
 end
 
 function Mover:SavePosition(a)
@@ -74,25 +83,44 @@ end
 
 function Mover:IsUnlocked() return unlocked end
 
-function Mover:Toggle()
-	if InCombatLockdown() then
+-- on = true unlocks, false locks. quiet: no chat line (combat locking prints its own).
+function Mover:SetUnlocked(on, quiet)
+	on = on and true or false
+	if on and InCombatLockdown() then
 		ns:Print("Can't move frames in combat.")
 		return
 	end
-	unlocked = not unlocked
+	if on == unlocked then
+		if not quiet then ns:Print(on and "Frames are already unlocked." or "Frames are already locked.") end
+		return
+	end
+	unlocked = on
 	for _, a in pairs(anchors) do
-		a.overlay:SetShown(unlocked)
+		if not on then self:StopDrag(a) end
+		a.overlay:SetShown(on)
 	end
 	-- Show preview frames while unlocked so there's something to see when solo.
-	if unlocked and not ns.TestMode:IsActive() then
+	if on and not ns.TestMode:IsActive() then
 		ns.TestMode:Start()
 		self.startedPreview = true
-	elseif not unlocked and self.startedPreview then
+	elseif not on and self.startedPreview then
 		ns.TestMode:Stop()
 		self.startedPreview = false
 	end
+	if not quiet then
+		ns:Print(on and "Frames unlocked: drag the boxes. Type /lattice lock when done."
+			or "Frames locked.")
+	end
+	ns:Fire("MoverChanged", on)
+end
+
+function Mover:Toggle()
+	self:SetUnlocked(not unlocked)
 end
 
 ns:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-	if unlocked then Mover:Toggle() end
+	if unlocked then
+		Mover:SetUnlocked(false, true)
+		ns:Print("Frames locked: combat started.")
+	end
 end)

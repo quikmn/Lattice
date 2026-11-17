@@ -158,7 +158,7 @@ end
 local function Help()
 	ns:Print("commands:")
 	ns:Print("  /lattice            open settings")
-	ns:Print("  /lattice unlock     move frames (again to lock)")
+	ns:Print("  /lattice unlock     move frames; /lattice lock when done")
 	ns:Print("  /lattice preview [5|10|20|25|40]   show fake frames")
 	ns:Print("  /lattice probe      report which unit data is secret right now")
 	ns:Print("  /lattice status     show why frames are or aren't visible")
@@ -180,7 +180,11 @@ SlashCmdList.LATTICE = function(msg)
 	local cmd, arg = (msg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
 	if cmd == "" or cmd == "config" or cmd == "options" then
 		ns.Options:Toggle()
-	elseif cmd == "unlock" or cmd == "lock" or cmd == "move" then
+	elseif cmd == "unlock" then
+		ns.Mover:SetUnlocked(true)
+	elseif cmd == "lock" then
+		ns.Mover:SetUnlocked(false)
+	elseif cmd == "move" then
 		ns.Mover:Toggle()
 	elseif cmd == "preview" or cmd == "test" then
 		local n = tonumber(arg)
@@ -200,7 +204,8 @@ SlashCmdList.LATTICE = function(msg)
 		ns.ListTanks()
 	elseif cmd == "show" or cmd == "hide" or cmd == "unlist" then
 		local ids = ns.Auras:ResolveSpells(arg)
-		if #ids == 0 then ns:Print("No spell found for \"" .. arg .. "\". Spell IDs always work.") return end
+		if arg == "" then ns:Print("Name a spell, like /lattice " .. cmd .. " flurry, or give its ID, like /lattice " .. cmd .. " 12966.") return end
+		if #ids == 0 then ns:Print("No spell found for \"" .. ns.Escape(arg) .. "\". Use a spell you know, or its ID, like /lattice " .. cmd .. " 12966.") return end
 		for _, id in ipairs(ids) do ns.Auras:SetListMode(id, cmd ~= "unlist" and cmd or nil, true) end
 		ns.Auras:Refresh()
 		if ns.Options:IsShown() then ns.Options:RebuildPage("aurafilters") end
@@ -219,7 +224,7 @@ end
 function ns.TankCommand(cmd, arg)
 	local unit = ns.Roles:FindUnit(arg)
 	if not unit then
-		ns:Print(arg ~= "" and ("No group member called " .. arg .. ".") or "Target a group member or give a name.")
+		ns:Print(arg ~= "" and ("No group member called " .. ns.Escape(arg) .. ".") or "Target a group member or give a name, like /lattice tank Thrall.")
 		return
 	end
 	local value = (cmd == "tank" and "tank") or (cmd == "notank" and "notank") or nil

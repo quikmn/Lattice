@@ -20,6 +20,11 @@ function ns:Print(...)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. table.concat(out, " "))
 end
 
+-- Text typed by the player (or pasted) shown in chat: a lone | would start an escape code.
+function ns.Escape(text)
+	return (tostring(text):gsub("|", "||"))
+end
+
 function ns:Printf(fmt, ...)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. string.format(fmt, ...))
 end
