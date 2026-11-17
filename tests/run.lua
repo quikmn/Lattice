@@ -634,6 +634,61 @@ step("options window: every page builds", function()
 	ns.Options:Toggle()
 end)
 
+step("options search: finds controls on every page, live, and puts them back", function()
+	local O = ns.Options
+	O:Open("general")
+	local f = LatticeOptionsWindow
+	check(f.searchBox and f.results, "no search box")
+	-- word starts on another page, with its path
+	local results = O:Search("opacity out")
+	check(#results >= 1 and results[1].entry.info.label == "Opacity when out of range", "range opacity not found first")
+	check(results[1].entry.path:find("^General"), "path: " .. results[1].entry.path)
+	local slider = results[1].entry.frame
+	check(slider:GetParent() == f.results.child, "control not listed in the results")
+	check(#O:Search("FRAMES show lattice") >= 1, "multi-word search")
+	local seen = {}
+	for _, e in ipairs(O:SearchEntries()) do seen[e.page.id] = true end
+	check(seen.general and seen.appearance and seen.layout, "pages not indexed")
+	-- a toggle in the results works
+	results = O:Search("fade players out of range")
+	local toggle = results[1].entry.frame
+	local before = ns.db.general.rangeFade
+	toggle:GetScript("OnClick")(toggle)
+	check(ns.db.general.rangeFade ~= before, "toggle in the results didn't change the setting")
+	toggle:GetScript("OnClick")(toggle)
+	-- nothing found, then clearing restores the page
+	O:Search("zzqqxx")
+	check(f.results.empty:IsShown(), "no 'nothing matches' text")
+	O:Search("")
+	check(slider:GetParent() == slider.searchSlot.stack.parent, "control not given back")
+	-- Ctrl+F focuses; Escape clears, then closes
+	MOCK.mods.ctrl = true
+	local focused
+	rawset(f.searchBox, "SetFocus", function() focused = true end)
+	f:GetScript("OnKeyDown")(f, "F")
+	MOCK.mods.ctrl = false
+	rawset(f.searchBox, "SetFocus", nil)
+	check(focused, "Ctrl+F didn't focus the box")
+	f.searchBox:SetText("tank")
+	O:Search("tank")
+	f:GetScript("OnKeyDown")(f, "ESCAPE")
+	check(f:IsShown() and f.searchBox:GetText() == "", "Escape should clear the search first")
+	-- the path jumps to the page
+	O:Search("opacity out")
+	local row = f.results.paths[1]
+	row:GetScript("OnClick")(row)
+	check(not f.results:IsShown() and slider.searchFlash and slider.searchFlash:IsShown(), "jump didn't open the page and light it up")
+	f:GetScript("OnKeyDown")(f, "ESCAPE")
+	check(not f:IsShown(), "second Escape should close")
+	-- a page rebuilt during a search stays searchable
+	O:Open("general")
+	O:Search("opacity out")
+	O:RebuildPage("general")
+	check(#O:Search("opacity out") >= 1, "rebuilt page lost from the search")
+	O:Search("")
+	O:Toggle()
+end)
+
 step("settings: the wheel scrolls the page, text areas only while typing, sliders never", function()
 	ns.Options:Open()
 	ns.Options:ShowPage("profiles")

@@ -21,7 +21,7 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 		disabled = function() return A().healthColor ~= "custom" end,
 	}))
 	W.Dropdown(s, Bind("appearance.backgroundMode", "appearance", {
-		label = "Missing health shows as",
+		label = "Missing health shows as", keywords = { "background", "deficit", "lost health" },
 		desc = "The part of the bar a player's health no longer fills.",
 		items = { { value = "dark", text = "Background color" }, { value = "class", text = "Dim class color" } },
 	}))
@@ -30,7 +30,7 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 		desc = "Its opacity is used in both modes.",
 	}))
 	W.Dropdown(s, Bind("appearance.texture", "appearance", {
-		label = "Bar texture",
+		label = "Bar texture", keywords = { "statusbar", "style", "look" },
 		items = { { value = "lattice", text = "Lattice (soft shade)" }, { value = "flat", text = "Flat" }, { value = "smooth", text = "Smooth" }, { value = "raid", text = "Blizzard raid" } },
 	}))
 	W.Toggle(s, Bind("appearance.healPrediction", "appearance", { label = "Show incoming heals", desc = "A light green bar past the health: heals being cast on that player." }))
@@ -66,9 +66,9 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 		label = "Target highlight color", hasAlpha = true,
 		disabled = function() return not A().targetHighlight end,
 	}))
-	W.Toggle(s, Bind("appearance.mouseoverHighlight", "appearance", { label = "Highlight the frame under the mouse" }))
+	W.Toggle(s, Bind("appearance.mouseoverHighlight", "appearance", { label = "Highlight the frame under the mouse", keywords = { "mouseover", "hover" } }))
 	W.Toggle(s, Bind("appearance.aggroBorder", "appearance", {
-		label = "Red border when a player has aggro",
+		label = "Red border when a player has aggro", keywords = { "threat" },
 		desc = "Red while a monster is attacking them; orange when it is but someone else is about to pull it off.",
 	}))
 	W.Toggle(s, Bind("appearance.aggroSkipTanks", "appearance", {
@@ -79,7 +79,7 @@ O:RegisterPage("appearance", "Appearance", nil, function(s)
 
 	W.Header(s, "Name")
 	W.Slider(s, Bind("appearance.nameSize", "appearance", { label = "Font size", min = 7, max = 20, step = 1 }))
-	W.Slider(s, Bind("appearance.nameLength", "appearance", { label = "Letters shown (0 = whole name)", min = 0, max = 20, step = 1 }))
+	W.Slider(s, Bind("appearance.nameLength", "appearance", { label = "Letters shown (0 = whole name)", keywords = { "name length", "truncate", "shorten", "characters" }, min = 0, max = 20, step = 1 }))
 	W.Dropdown(s, Bind("appearance.namePoint", "appearance", { label = "Position", items = POINT_ITEMS }))
 	W.Toggle(s, Bind("appearance.nameOutline", "appearance", { label = "Outline" }))
 	W.Toggle(s, Bind("appearance.nameClassColor", "appearance", { label = "Class colored names" }))

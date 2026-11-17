@@ -9,6 +9,9 @@
 ## AddonCompartmentFuncOnEnter: Lattice_OnCompartmentEnter
 ## AddonCompartmentFuncOnLeave: Lattice_OnCompartmentLeave
 
+Libs\LibStub\LibStub.lua
+Libs\EverlookUI\EverlookUI.lua
+
 Core\Init.lua
 Core\Util.lua
 Options\Theme.lua

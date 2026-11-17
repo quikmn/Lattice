@@ -46,7 +46,7 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 	W.Header(s, "Frame size")
 	W.Slider(s, L("width", { label = "Width", min = 30, max = 200, step = 1 }))
 	W.Slider(s, L("height", { label = "Height", min = 16, max = 120, step = 1 }))
-	W.Slider(s, L("spacing", { label = "Gap between frames", min = 0, max = 20, step = 1 }))
+	W.Slider(s, L("spacing", { label = "Gap between frames", keywords = { "spacing", "padding" }, min = 0, max = 20, step = 1 }))
 	W.Toggle(s, L("showPower", { label = "Show power bar", desc = "Who gets one is set on the Appearance page." }))
 
 	W.Header(s, "Arrangement")
@@ -78,12 +78,12 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 
 	W.Header(s, "Raid", "Only used by the Raid and Large raid layouts.")
 	W.Dropdown(s, L("mode", {
-		label = "Raid style",
+		label = "Raid style", keywords = { "groups", "grid", "layout" },
 		items = { { value = "groups", text = "One column per raid group" }, { value = "combined", text = "All players in one grid" } },
 		width = 300,
 		disabled = notRaid,
 	}))
-	W.Slider(s, L("groupSpacing", { label = "Gap between groups", min = 0, max = 40, step = 1, disabled = notRaid }))
+	W.Slider(s, L("groupSpacing", { label = "Gap between groups", keywords = { "spacing", "padding" }, min = 0, max = 40, step = 1, disabled = notRaid }))
 	W.Slider(s, L("groupsPerLine", { label = "Groups per row before wrapping", min = 1, max = 8, step = 1, disabled = notGroups }))
 	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups", disabled = notGroups }))
 	W.Dropdown(s, L("innerSort", {
@@ -92,7 +92,7 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		items = { { value = "NONE", text = "Group order" }, { value = "CLASS", text = "Class" }, { value = "ROLE", text = "Tank, healer, damage" } },
 		disabled = notGroups,
 	}))
-	W.Slider(s, L("unitsPerColumn", { label = "Players per column (one grid)", min = 1, max = 40, step = 1, disabled = notGrid }))
+	W.Slider(s, L("unitsPerColumn", { label = "Players per column (one grid)", keywords = { "rows", "columns", "wrap" }, min = 1, max = 40, step = 1, disabled = notGrid }))
 	W.Dropdown(s, L("groupBy", {
 		label = "Group the grid by",
 		items = { { value = "NONE", text = "Nothing" }, { value = "GROUP", text = "Raid group" }, { value = "ROLE", text = "Tank, healer, damage" }, { value = "CLASS", text = "Class" } },

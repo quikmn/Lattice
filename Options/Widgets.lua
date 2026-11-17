@@ -44,8 +44,12 @@ function W.CloseOnEscape(frame)
 	end)
 	frame:SetScript("OnKeyDown", function(self, key)
 		local esc = key == "ESCAPE"
-		if not InCombatLockdown() then self:SetPropagateKeyboardInput(not esc) end
-		if esc then self:Hide() end
+		-- frame.eluiKey(frame, key) -> true keeps a key for the window (Ctrl+F); every other key reaches the game
+		local taken = not esc and self.eluiKey and self.eluiKey(self, key) and true or false
+		if not InCombatLockdown() then self:SetPropagateKeyboardInput(not esc and not taken) end
+		if not esc then return end
+		if self.eluiEscape and self.eluiEscape(self) then return end -- a search clears first
+		self:Hide()
 	end)
 end
 
@@ -70,9 +74,12 @@ function Stack:Add(frame, height, gap, indent)
 	frame:SetPoint("TOPLEFT", self.parent, "TOPLEFT", indent or 0, -self.y)
 	frame:SetWidth(self.width - (indent or 0))
 	frame:SetHeight(height)
+	-- where it sits, so the settings search can borrow it and put it back
+	frame.searchSlot = { stack = self, y = self.y, indent = indent or 0, height = height }
 	self.y = self.y + height + (gap or T.rowGap)
 	if frame.Refresh then self.widgets[#self.widgets + 1] = frame end
 	self.parent:SetHeight(self.y + T.pad)
+	if self.onIndex and frame.searchInfo then self.onIndex(self, frame) end
 	return frame
 end
 
@@ -83,6 +90,16 @@ end
 
 function Stack:RefreshAll()
 	for _, w in ipairs(self.widgets) do w:Refresh() end
+	if self.onRefreshAll then self.onRefreshAll(self) end -- search results from other pages follow too
+end
+
+-- What the settings search knows about a widget: its label, description and opt.keywords
+-- ({ "opacity", "alpha" }, English is fine). opt.search = false keeps it out.
+local function SearchInfo(opt, extra)
+	if not opt.label or opt.search == false then return nil end
+	local info = { label = opt.label, desc = opt.desc, keywords = opt.keywords }
+	if extra then for k, v in pairs(extra) do info[k] = v end end
+	return info
 end
 
 ------------------------------------------------------------------------
@@ -106,6 +123,7 @@ function W.Header(stack, text, sub)
 		h = 44
 	end
 	stack:Space(stack.y > 0 and 8 or 0)
+	stack.searchHeader = text -- search results show "Page » Heading" for the rows under it
 	return stack:Add(f, h, 12)
 end
 
@@ -211,6 +229,7 @@ function W.Toggle(stack, opt)
 		if opt.after then opt.after() end
 	end)
 	Tooltip(f, opt.label, opt.desc)
+	f.searchInfo = SearchInfo(opt)
 	stack:Add(f, 20)
 	f:Refresh()
 	return f
@@ -302,6 +321,7 @@ function W.Slider(stack, opt)
 	end)
 	box:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Refresh() end)
 	Tooltip(f, opt.label, opt.desc)
+	f.searchInfo = SearchInfo(opt)
 	stack:Add(f, 40)
 	f:Refresh()
 	return f
@@ -435,6 +455,14 @@ function W.Dropdown(stack, opt)
 		end)
 	end)
 	Tooltip(b, opt.label, opt.desc)
+	f.searchInfo = SearchInfo(opt, {
+		value = function() return value:GetText() end,
+		choices = function()
+			local t = {}
+			for _, it in ipairs(items()) do if not it.title and it.text then t[#t + 1] = tostring(it.text) end end
+			return table.concat(t, " ")
+		end,
+	})
 	stack:Add(f, 44)
 	f:Refresh()
 	return f
@@ -491,6 +519,7 @@ function W.Color(stack, opt)
 		end
 	end)
 	Tooltip(f, opt.label, opt.desc)
+	f.searchInfo = SearchInfo(opt)
 	stack:Add(f, 20)
 	f:Refresh()
 	return f
@@ -679,7 +708,7 @@ function W.ScrollPage(parent)
 	child:SetSize(1, 1)
 	scroll:SetScrollChild(child)
 
-	local track, update = AttachScrollBar(scroll, child, parent, PAGE_STEP)
+	local track, update, setScroll = AttachScrollBar(scroll, child, parent, PAGE_STEP)
 	track:SetPoint("TOPRIGHT", -3, -2)
 	track:SetPoint("BOTTOMRIGHT", -3, 2)
 
@@ -694,5 +723,6 @@ function W.ScrollPage(parent)
 	scroll.child = child
 	scroll.track = track
 	scroll.UpdateBar = update
+	scroll.SetScroll = setScroll
 	return scroll
 end

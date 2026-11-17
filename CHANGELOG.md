@@ -1,5 +1,9 @@
 # Lattice Party & Raid Frames
 
+## Unreleased
+
+- The settings window has a search box at the top: type to find any setting.
+
 ## v0.6.0 (2026-11-17)
 
 - Hover-casting: each key now lets you choose who the spell is for (a friend, an enemy, or either), whether it falls back to your target, and whether it then falls back to you. Enemy keys list your damage spells. Existing keys keep working as before (friend, then target, never you).

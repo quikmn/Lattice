@@ -40,7 +40,7 @@ local function IndicatorEditor(s, index)
 	}))
 	W.Color(s, Bind(base .. ".color", "auras", { label = "Square color", disabled = function() return off() or ind.style == "icon" end }))
 	W.Slider(s, Bind(base .. ".size", "auras", { label = "Size", min = 4, max = 30, step = 1, disabled = off }))
-	W.Toggle(s, Bind(base .. ".swipe", "auras", { label = "Show time left as a swipe", disabled = off }))
+	W.Toggle(s, Bind(base .. ".swipe", "auras", { label = "Show time left as a swipe", keywords = { "cooldown", "spiral", "timer", "duration" }, disabled = off }))
 	Pos(s, base, false, off)
 	local del = W.ConfirmButton(nil, "Remove indicator", function()
 		table.remove(ns.db.auras.indicators, index)
@@ -108,7 +108,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		disabled = Off(),
 	}))
 	W.Toggle(s, Bind("auras.countdown", "auras", {
-		label = "Seconds left on buff and debuff icons",
+		label = "Seconds left on buff and debuff icons", keywords = { "timer", "countdown", "duration" },
 		desc = "Numbers counting down on the icons. Raid buffs keep just the clock sweep.",
 		disabled = Off(),
 	}))
@@ -127,9 +127,9 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		desc = "The debuff itself, large, edged in its type's color (blue Magic, purple Curse, green Poison, brown Disease).",
 		disabled = Off(),
 	}))
-	W.Toggle(s, Bind("auras.dispel.iconPulse", "auras", { label = "Pulse around the big icon", disabled = noIcon }))
+	W.Toggle(s, Bind("auras.dispel.iconPulse", "auras", { label = "Pulse around the big icon", keywords = { "glow", "animation" }, disabled = noIcon }))
 	W.Slider(s, Bind("auras.dispel.iconSize", "auras", { label = "Big icon size", min = 14, max = 40, step = 1, disabled = noIcon }))
-	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Color the frame too", disabled = Off() }))
+	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Color the frame too", keywords = { "dispel", "highlight", "colour" }, disabled = Off() }))
 	W.Dropdown(s, Bind("auras.dispel.style", "auras", {
 		label = "How",
 		items = { { value = "border", text = "Colored border" }, { value = "both", text = "Border and a light tint" },
@@ -161,8 +161,8 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	}))
 	W.Slider(s, Bind("auras.debuffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1, disabled = noDebuffs }))
 	W.Slider(s, Bind("auras.debuffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noDebuffs }))
-	W.Toggle(s, Bind("auras.debuffs.swipe", "auras", { label = "Time left as a swipe", disabled = noDebuffs }))
-	W.Toggle(s, Bind("auras.debuffs.stacks", "auras", { label = "Stack count", disabled = noDebuffs }))
+	W.Toggle(s, Bind("auras.debuffs.swipe", "auras", { label = "Time left as a swipe", keywords = { "cooldown", "spiral", "timer", "duration" }, disabled = noDebuffs }))
+	W.Toggle(s, Bind("auras.debuffs.stacks", "auras", { label = "Stack count", keywords = { "stacks", "charges" }, disabled = noDebuffs }))
 	Pos(s, "auras.debuffs", true, noDebuffs)
 
 	W.Header(s, "Buffs", "Your HoTs and shields, on the frame.")
@@ -180,7 +180,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	}))
 	W.Slider(s, Bind("auras.buffs.max", "auras", { label = "How many", min = 1, max = 8, step = 1, disabled = noBuffs }))
 	W.Slider(s, Bind("auras.buffs.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noBuffs }))
-	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left as a swipe", disabled = noBuffs }))
+	W.Toggle(s, Bind("auras.buffs.swipe", "auras", { label = "Time left as a swipe", keywords = { "cooldown", "spiral", "timer", "duration" }, disabled = noBuffs }))
 	Pos(s, "auras.buffs", true, noBuffs)
 
 	W.Header(s, "Raid buffs", "Long buffs like Fortitude and Arcane Intellect in a row beside each frame, so you can see who needs a rebuff. In a party; in a raid only if you turn it on.")
@@ -225,13 +225,13 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 
 	W.Header(s, "Boss debuff", "One big icon for the most important boss debuff.")
 	local noBoss = Off("boss.enabled")
-	W.Toggle(s, Bind("auras.boss.enabled", "auras", { label = "Show boss debuff", disabled = Off() }))
+	W.Toggle(s, Bind("auras.boss.enabled", "auras", { label = "Show boss debuff", keywords = { "raid debuff", "dungeon" }, disabled = Off() }))
 	W.Slider(s, Bind("auras.boss.size", "auras", { label = "Icon size", min = 10, max = 40, step = 1, disabled = noBoss }))
 	Pos(s, "auras.boss", false, noBoss)
 
 	W.Header(s, "Big defensives", "Shield Wall, Divine Shield, Evasion, Barkskin, Blessing of Protection and similar.")
 	local noDef = Off("defensive.enabled")
-	W.Toggle(s, Bind("auras.defensive.enabled", "auras", { label = "Show big defensive", disabled = Off() }))
+	W.Toggle(s, Bind("auras.defensive.enabled", "auras", { label = "Show big defensive", keywords = { "cooldown", "shield wall", "defensive" }, disabled = Off() }))
 	W.Slider(s, Bind("auras.defensive.size", "auras", { label = "Icon size", min = 8, max = 32, step = 1, disabled = noDef }))
 	Pos(s, "auras.defensive", false, noDef)
 
