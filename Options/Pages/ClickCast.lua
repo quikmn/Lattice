@@ -18,7 +18,16 @@ local function SpellbookSpells(side)
 				local item = C_SpellBook.GetSpellBookItemInfo(slot, bank)
 				if item and item.spellID and item.name and not item.isPassive and not seen[item.name] then
 					local helpful = C_SpellBook.IsSpellBookItemHelpful and C_SpellBook.IsSpellBookItemHelpful(slot, bank)
-					if side == "any" or (side == "help") == (helpful and true or false) then
+					local fits = side == "any" or side == "help" and helpful
+					if side == "harm" then
+						-- harmful spells, not everything that isn't helpful (that would list mounts, tracking, Hearthstone...)
+						if C_SpellBook.IsSpellBookItemHarmful then
+							fits = C_SpellBook.IsSpellBookItemHarmful(slot, bank)
+						else
+							fits = not helpful
+						end
+					end
+					if fits then
 						seen[item.name] = true
 						out[#out + 1] = { value = item.spellID, text = item.name }
 					end

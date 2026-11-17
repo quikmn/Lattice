@@ -862,6 +862,20 @@ step("blank profile names are refused; chat escapes typed text", function()
 	SlashCmdList.LATTICE("show")
 end)
 
+step("enemy hover keys list harmful spells, not everything that isn't helpful", function()
+	local O = ns.Options
+	local harmful = { [3] = true }
+	C_SpellBook.IsSpellBookItemHelpful = function(slot) return slot == 1 end
+	C_SpellBook.IsSpellBookItemHarmful = function(slot) return harmful[slot] == true end
+	local harm = O.SpellbookSpells("harm")
+	check(#harm == 1 and harm[1].value == 5185, "harm list: " .. #harm)
+	check(#O.SpellbookSpells("help") == 1 and #O.SpellbookSpells("any") == 2, "help/any lists")
+	C_SpellBook.IsSpellBookItemHelpful = function() return true end
+	C_SpellBook.IsSpellBookItemHarmful = nil
+	check(not ns.HoverCast.MacroText({ action = "spell", value = 774, side = "any", fallback = false }):find("@player", 1, true),
+		"either side without self falls back to you")
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default

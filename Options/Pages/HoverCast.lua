@@ -94,7 +94,19 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	W.Dropdown(s, { label = "Who it's for",
 		desc = "Friend for heals and buffs, enemy for damage, either for spells that do both (Penance, Dispel Magic).",
 		items = { { value = "help", text = "A friend" }, { value = "harm", text = "An enemy" }, { value = "any", text = "Friend or enemy" } },
-		get = function() return draft.side end, set = function(v) draft.side = v; s:RefreshAll() end })
+		get = function() return draft.side end,
+		set = function(v)
+			draft.side = v
+			-- a spell picked for the other side (a heal on an enemy key) would never cast: clear it
+			if draft.value and v ~= "any" then
+				local fits = false
+				for _, it in ipairs(O.SpellbookSpells(v)) do
+					if it.value == draft.value then fits = true break end
+				end
+				if not fits then draft.value = nil end
+			end
+			s:RefreshAll()
+		end })
 	W.Dropdown(s, { label = "Spell (from your spellbook)", items = function() return O.SpellbookSpells(draft.side) end, width = 300,
 		format = CC.SpellName,
 		get = function() return draft.value end,
@@ -124,7 +136,8 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	W.Toggle(s, { label = "If nobody fitting is under the mouse, cast on my target",
 		get = function() return draft.fallback end, set = function(v) draft.fallback = v end })
 	W.Toggle(s, { label = "If there's still nobody, cast on me (friendly spells only)",
-		get = function() return draft.self end, set = function(v) draft.self = v end })
+		disabled = function() return draft.side == "harm" end,
+		get = function() return draft.self and draft.side ~= "harm" end, set = function(v) draft.self = v end })
 
 	local add = W.Button(nil, "Add hover-cast key", function()
 		if not draft.key then
@@ -135,7 +148,8 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 			feedback.text:SetText("|cffff7070Pick or type a spell first.|r")
 			return
 		end
-		HC:Add({ key = draft.key, action = "spell", value = draft.value, fallback = draft.fallback, side = draft.side, self = draft.self })
+		HC:Add({ key = draft.key, action = "spell", value = draft.value, fallback = draft.fallback, side = draft.side,
+			self = draft.self and draft.side ~= "harm" })
 		O:RebuildPage("hovercast")
 	end, 170, "accent")
 	s:Add(add, 26)
