@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Chat commands now follow one pattern across all EverlookDB addons: `/lattice help` (or `?`) lists them in the same format as the others; `/lattice search <words>` opens the settings with the search box filled; `/lattice status` starts with the version; `/lattice version`; an unknown command suggests the nearest one instead of printing the whole list. Every old command (and `/lat`) still works.
 - The settings window has a search box at the top: type to find any setting.
 
 ## v0.6.0 (2026-11-17)

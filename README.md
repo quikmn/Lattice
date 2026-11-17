@@ -11,6 +11,7 @@ Written from scratch. It contains no code from Cell, Grid2 or any other addon an
 - `/lattice tank <name>`, `/lattice notank <name>`, `/lattice autotank <name>` fix the tank guess for a player; `/lattice tanks` lists who counts as tank.
 - `/lattice feedback` (or the Feedback button in the settings) shows a link for reporting bugs and ideas.
 - `/lattice show <spell>`, `/lattice hide <spell>`, `/lattice unlist <spell>` edit the aura filters (name or spell ID).
+- `/lattice search <words>` opens the settings with the search box filled; `/lattice version`; `/lattice help` (or `?`) lists every command, and a mistyped one suggests the nearest. `/lat` works as well as `/lattice`; the commands follow the same pattern as every EverlookDB addon.
 - Ctrl+Alt+Right-click a frame: tank choice for that player and a picker for their auras.
 
 ## Features

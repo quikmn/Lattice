@@ -155,69 +155,63 @@ function ns.ShowFeedback()
 	return feedback
 end
 
-local function Help()
-	ns:Print("commands:")
-	ns:Print("  /lattice            open settings")
-	ns:Print("  /lattice unlock     move frames; /lattice lock when done")
-	ns:Print("  /lattice preview [5|10|20|25|40]   show fake frames")
-	ns:Print("  /lattice probe      report which unit data is secret right now")
-	ns:Print("  /lattice status     show why frames are or aren't visible")
-	ns:Print("  /lattice tank [name]      mark a player as tank (no name = your target)")
-	ns:Print("  /lattice notank [name]    never treat a player as tank")
-	ns:Print("  /lattice autotank [name]  guess again for that player")
-	ns:Print("  /lattice tanks      list who counts as tank and why")
-	ns:Print("  /lattice show|hide <spell>   always / never show an aura (name or ID)")
-	ns:Print("  /lattice unlist <spell>      take an aura off the filters")
-	ns:Print("  Ctrl+Alt+Right-click a frame: tank choice and aura picker")
-	ns:Print("  /lattice debug      toggle debug messages")
-	ns:Print("  /lattice feedback   link for reporting bugs and ideas")
+-- /lattice (also /lat): the chat-command pattern every EverlookDB addon shares, from EverlookUI. Lattice keeps its own
+-- settings window (Options/Window.lua), so the app's window calls go there.
+local EUI = LibStub and LibStub("EverlookUI-1", true)
+local app = EUI:NewApp({
+	name = "Lattice", addon = ADDON, slash = "/lattice", aliases = { "/lat" },
+	tagline = "Party and raid frames. Ctrl+Alt+Right-click a frame: tank choice and aura picker.",
+	accent = { 0.353, 0.663, 1.0 }, settingsPanel = false,
+})
+ns.app = app
+function app:Toggle() ns.Options:Toggle() end
+function app:Open() ns.Options:Open() end
+function app:Close() if ns.Options:IsShown() then ns.Options:Toggle() end end
+function app:IsShown() return ns.Options:IsShown() and true or false end
+function app:OpenSearch(text) ns.Options:OpenSearch(text) end
+
+app:Movable({ what = "the frames", get = function() return not ns.Mover:IsUnlocked() end,
+	set = function(locked) ns.Mover:SetUnlocked(not locked) end })
+app:StatusLines(function() ns.Status() end) -- why frames are or aren't visible
+
+local function auraList(cmd, arg)
+	local ids = ns.Auras:ResolveSpells(arg)
+	if arg == "" then ns:Print("Name a spell, like /lattice " .. cmd .. " flurry, or give its ID, like /lattice " .. cmd .. " 12966.") return end
+	if #ids == 0 then ns:Print("No spell found for \"" .. ns.Escape(arg) .. "\". Use a spell you know, or its ID, like /lattice " .. cmd .. " 12966.") return end
+	for _, id in ipairs(ids) do ns.Auras:SetListMode(id, cmd ~= "unlist" and cmd or nil, true) end
+	ns.Auras:Refresh()
+	if ns.Options:IsShown() then ns.Options:RebuildPage("aurafilters") end
+	ns:Printf("%s: %s", table.concat(ids, ", "), cmd == "unlist" and "off the filters" or ns.Auras.LIST_MODES[cmd]:lower())
 end
+
+app:Command("preview", "preview [5|10|20|25|40]", "show fake frames", function(arg)
+	local n = tonumber(arg)
+	if n then
+		ns.TestMode.manual = true
+		ns.TestMode:Start(n)
+	else
+		ns.TestMode:Toggle()
+	end
+end, { "test" })
+app:Command("probe", "probe", "which unit data is secret right now", function() ns.Probe() end)
+app:Command("tank", "tank [name]", "mark a player as tank (no name: your target)", function(arg) ns.TankCommand("tank", arg) end)
+app:Command("notank", "notank [name]", "never treat a player as tank", function(arg) ns.TankCommand("notank", arg) end)
+app:Command("autotank", "autotank [name]", "guess again for that player", function(arg) ns.TankCommand("autotank", arg) end)
+app:Command("tanks", "tanks", "who counts as tank, and why", function() ns.ListTanks() end)
+app:Command("show", "show <spell>", "always show an aura (name or ID)", function(arg) auraList("show", arg) end)
+app:Command("hide", "hide <spell>", "never show an aura", function(arg) auraList("hide", arg) end)
+app:Command("unlist", "unlist <spell>", "take an aura off the filters", function(arg) auraList("unlist", arg) end)
+app:Command("debug", "debug", "debug messages on or off", function()
+	ns.db.debug = not ns.db.debug
+	ns:Print("debug " .. (ns.db.debug and "on" or "off"))
+end)
+app:Command("feedback", "feedback", "a link for bugs and ideas", function() ns.ShowFeedback() end, { "bug" })
 
 SLASH_LATTICE1 = "/lattice"
 SLASH_LATTICE2 = "/lat"
 SlashCmdList.LATTICE = function(msg)
 	if ns.oldCopy then ns:Print("Type /reload first: the old \"Lattice\" folder was just turned off.") return end
-	local cmd, arg = (msg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
-	if cmd == "" or cmd == "config" or cmd == "options" then
-		ns.Options:Toggle()
-	elseif cmd == "unlock" then
-		ns.Mover:SetUnlocked(true)
-	elseif cmd == "lock" then
-		ns.Mover:SetUnlocked(false)
-	elseif cmd == "move" then
-		ns.Mover:Toggle()
-	elseif cmd == "preview" or cmd == "test" then
-		local n = tonumber(arg)
-		if n then
-			ns.TestMode.manual = true
-			ns.TestMode:Start(n)
-		else
-			ns.TestMode:Toggle()
-		end
-	elseif cmd == "probe" then
-		ns.Probe()
-	elseif cmd == "status" then
-		ns.Status()
-	elseif cmd == "tank" or cmd == "notank" or cmd == "autotank" then
-		ns.TankCommand(cmd, arg)
-	elseif cmd == "tanks" then
-		ns.ListTanks()
-	elseif cmd == "show" or cmd == "hide" or cmd == "unlist" then
-		local ids = ns.Auras:ResolveSpells(arg)
-		if arg == "" then ns:Print("Name a spell, like /lattice " .. cmd .. " flurry, or give its ID, like /lattice " .. cmd .. " 12966.") return end
-		if #ids == 0 then ns:Print("No spell found for \"" .. ns.Escape(arg) .. "\". Use a spell you know, or its ID, like /lattice " .. cmd .. " 12966.") return end
-		for _, id in ipairs(ids) do ns.Auras:SetListMode(id, cmd ~= "unlist" and cmd or nil, true) end
-		ns.Auras:Refresh()
-		if ns.Options:IsShown() then ns.Options:RebuildPage("aurafilters") end
-		ns:Printf("%s: %s", table.concat(ids, ", "), cmd == "unlist" and "off the filters" or ns.Auras.LIST_MODES[cmd]:lower())
-	elseif cmd == "feedback" or cmd == "bug" then
-		ns.ShowFeedback()
-	elseif cmd == "debug" then
-		ns.db.debug = not ns.db.debug
-		ns:Print("debug " .. (ns.db.debug and "on" or "off"))
-	else
-		Help()
-	end
+	app:HandleSlash((msg or ""):lower()) -- names and spells match without case
 end
 
 -- /lattice tank, notank or autotank [name]. Names match without case; no name = target.

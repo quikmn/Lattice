@@ -784,6 +784,34 @@ step("slash commands", function()
 	SlashCmdList.LATTICE("help")
 end)
 
+step("chat commands follow the shared EverlookDB pattern", function()
+	check(SLASH_LATTICE1 == "/lattice" and SLASH_LATTICE2 == "/lat", "slash words")
+	local function logText() return table.concat(MOCK.log or {}, "\n") end
+	MOCK.log = {}
+	SlashCmdList.LATTICE("?")
+	local help = logText()
+	for _, want in ipairs({ "/lattice preview [5||10||20||25||40]", "/lattice tank [name]", "/lattice unlock || lock",
+		"/lattice show <spell>", "/lattice search <words>", "/lattice status || version || help", "Also works as /lat" }) do
+		check(help:find(want, 1, true), "help lacks " .. want .. ": " .. help)
+	end
+	MOCK.log = {}
+	SlashCmdList.LATTICE("tnaks")
+	check(logText():find("Did you mean /lattice tanks?", 1, true), "typo: " .. logText())
+	MOCK.log = {}
+	SlashCmdList.LATTICE("version")
+	check(logText():find("Lattice", 1, true), "version: " .. logText())
+	MOCK.log = {}
+	SlashCmdList.LATTICE("get")
+	check(logText():find("no settings to change from chat", 1, true), "get: " .. logText())
+	SlashCmdList.LATTICE("search Range")
+	check(LatticeOptionsWindow:IsShown() and LatticeOptionsWindow.searchBox:GetText() == "range", "search: " .. tostring(LatticeOptionsWindow.searchBox:GetText()))
+	ns.Options:StopSearch()
+	SlashCmdList.LATTICE("")
+	check(not LatticeOptionsWindow:IsShown(), "bare /lattice toggles the window closed")
+	SlashCmdList.LATTICE("config")
+	check(LatticeOptionsWindow:IsShown(), "/lattice config opens it")
+end)
+
 step("feedback link", function()
 	SlashCmdList.LATTICE("feedback")
 	local d = LatticeFeedbackWindow

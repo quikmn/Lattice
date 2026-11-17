@@ -10,7 +10,11 @@
 --   app:Setting({ key = "fontsize", type = "number", label = "Font size", min = 8, max = 48, get = ..., set = ... })
 --   app:Command("test", "test", "show fake numbers", function(rest) ... end)
 --   app:Section("general", "General", function(stack, app) app:Widget(stack, "fontsize") end)
---   SlashCmdList.WHACK = function(msg) app:HandleSlash(msg) end
+--   app:Movable({ what = "the text areas", get = ..., set = ... })   -- /whack lock, unlock
+--   app:Reset("outgoing", "the outgoing area", function() ... end)   -- /whack reset outgoing (asks first)
+--   app:StatusLines(function() return "seen 12 hits" end)            -- /whack status
+--   app:RegisterSlash("WHACK")   -- or SlashCmdList.WHACK = function(msg) app:HandleSlash(msg) end
+-- Chat commands follow one pattern in every addon: see "Chat commands" below and COMMANDS.md.
 --
 -- Widgets: Header, Note, Toggle, Slider, Dropdown, Color, Input, CopyBox, Stat, List, Button, ConfirmButton,
 -- ButtonRow, TextArea, ScrollPage. Bound widgets take { label, desc, get, set, disabled, after } and have :Refresh().
@@ -21,7 +25,7 @@
 -- page, by label, description, page and heading, a dropdown's value and choices, the chat-command name and
 -- optional keywords: app:Setting({ ..., keywords = { "opacity", "alpha" } }) or a widget's/button's opt.keywords.
 -- opt.search = false keeps a widget out. Results are the real controls, borrowed from their page while listed.
-local MAJOR, MINOR = "EverlookUI-1", 3
+local MAJOR, MINOR = "EverlookUI-1", 4
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
@@ -1492,7 +1496,10 @@ local function addonVersion(addon)
 	return v
 end
 
--- spec: name, addon (folder name), version (else the TOC's), tagline, slash ("/whack"), accent { r, g, b },
+-- spec: name, addon (folder name), version (else the TOC's), tagline, slash ("/whack"), aliases ({ "/whackit" }: more
+-- slash words, kept working and named in help), shortSettings (false: settings only as "/x set <setting> <value>"),
+-- chatSearch (false: help doesn't offer "/x search <words>"), windowDesc (what a bare /x opens, for help),
+-- accent { r, g, b },
 -- frameName (prefix for global frame names; default name without spaces), width, height,
 -- position (function returning the table the window position is saved in, as .window),
 -- buttons ({ { label, onClick(app, button), text = fn() -> label } } shown under the sidebar or along the bottom),
@@ -1643,9 +1650,15 @@ function App:Apply(def, v)
 	self:Refresh()
 end
 
+-- How a setting is set from chat: "/x <setting> <value>", or "/x set <setting> <value>" for an addon whose bare
+-- words mean something else (spec.shortSettings = false: "/note <text>" notes your target).
+function App:SetPrefix()
+	return self.slash .. (self.spec.shortSettings == false and " set " or " ")
+end
+
 -- "/x <setting> <value>": set it and reply with the new value; no value shows it and how to set it.
 function App:SetFromText(def, text)
-	local usage = self.slash .. " " .. def.key .. " " .. self:Example(def)
+	local usage = self:SetPrefix() .. def.key .. " " .. self:Example(def)
 	local label = def.chatLabel or def.label
 	if U.Trim(text) == "" then
 		self:Print(label .. ": " .. self:FormatValue(def, def.get()) .. ". Set it with " .. U.Escape(usage) .. " (" .. self:Accepts(def) .. ").")
@@ -1671,8 +1684,8 @@ function App:TrySetting(msg)
 end
 
 function App:PrintSettings()
-	if #self.settingOrder == 0 then self:Print("no settings.") return end
-	self:Print("settings (" .. U.Escape(self.slash) .. " <setting> <value>):")
+	if #self.settingOrder == 0 then self:Print("no settings to change from chat. " .. U.Escape(self.slash) .. " opens the window.") return end
+	self:Print("settings (" .. U.Escape(self:SetPrefix()) .. "<setting> <value>):")
 	for _, def in ipairs(self.settingOrder) do
 		DEFAULT_CHAT_FRAME:AddMessage("  " .. self:ColorCode() .. def.key .. "|r = " .. self:FormatValue(def, def.get())
 			.. "  |cff8d94a3" .. (def.chatLabel or def.label) .. " (" .. self:Accepts(def) .. ")|r")
@@ -1680,50 +1693,338 @@ function App:PrintSettings()
 end
 
 ------------------------------------------------------------------------
--- Commands
+-- Chat commands: one pattern in every addon (the full convention is COMMANDS.md next to this file).
+--   /x                         the settings window
+--   /x help | ?                every command, in one format
+--   /x <setting> <value>       also "set <setting> <value>"; "get [setting]"; a setting alone shows it
+--   /x on | off | toggle       the addon (app:OnOff); "/x off <setting>" or "/x <setting> off" for an on/off setting
+--   /x reset [section]         asks first: the same command again within 10 s does it (app:Reset)
+--   /x status | version        version, state and a health line (app:StatusLines)
+--   /x lock | unlock           anything movable (app:Movable)
+--   /x search <words>          the window with its search box filled
+--   /x feedback                a link for bugs and ideas (spec.feedbackURL)
+-- The addon's own commands (app:Command) are tried first, so an addon can give a verb its own meaning. An unknown
+-- word gets the nearest command or setting ("did you mean /x tooltip off?").
 ------------------------------------------------------------------------
--- name: the first word; usage: shown in help ("recent", "on <macro>"); run(rest, app).
+local RED, GREY = "|cffff6060", "|cff8d94a3"
+UI.RESET_SECONDS = 10
+
+-- name: the first word; usage: shown in help ("recent", "on <macro>"); run(rest, app); aliases: more first words.
+-- c.hidden = true keeps it out of help (an old name kept working).
 function App:Command(name, usage, desc, run, aliases)
-	local c = { name = name, usage = usage or name, desc = desc, run = run }
+	local c = { name = name, usage = usage or name, desc = desc, run = run, aliases = aliases }
 	self.commands[name:lower()] = c
 	self.commandOrder[#self.commandOrder + 1] = c
 	for _, a in ipairs(aliases or {}) do self.commands[a:lower()] = c end
 	return c
 end
 
-function App:Help()
-	local s = U.Escape(self.slash)
-	self:Print(self:Version() .. (self.spec.tagline and (" - " .. self.spec.tagline) or ""))
-	local cc = self:ColorCode()
-	local function line(cmd, desc) DEFAULT_CHAT_FRAME:AddMessage("  " .. cc .. U.Escape(cmd) .. "|r - " .. desc) end
-	line(self.slash, "open or close the settings window")
-	for _, c in ipairs(self.commandOrder) do
-		if not c.hidden then line(self.slash .. " " .. c.usage, c.desc or "") end
-	end
-	if #self.settingOrder > 0 then
-		line(self.slash .. " <setting> <value>", "change a setting, e.g. " .. s .. " " .. self.settingOrder[1].key .. " " .. U.Escape(self:Example(self.settingOrder[1])))
-		line(self.slash .. " settings", "list every setting and its value")
-	end
-	line(self.slash .. " help", "this list")
+-- The addon's own on/off switch, for "/x on", "/x off" and "/x toggle":
+-- def = { label = "Recording", get = fn() -> bool, set = fn(on) }.
+function App:OnOff(def)
+	assert(def and def.get and def.set, "OnOff needs get and set")
+	self.onOff = def
+	return def
 end
 
--- The whole slash command: bare opens the window; help; settings; commands; "<setting> <value>".
+-- Things the player can move, for "/x unlock", "/x lock" (and "/x move", which flips it):
+-- def = { what = "the text areas", get = fn() -> locked, set = fn(locked) }.
+function App:Movable(def)
+	assert(def and def.get and def.set, "Movable needs get and set")
+	self.movable = def
+	return def
+end
+
+-- More for "/x status": fn(app) returns a line or a list of lines (or prints its own and returns nothing).
+function App:StatusLines(fn) self.statusFn = fn end
+
+-- Something "/x reset [section]" puts back: section ("outgoing"; nil for a plain "/x reset"), what it is for the
+-- question ("the outgoing area"), run(app). Every reset asks first.
+function App:Reset(section, what, run)
+	self.resets = self.resets or {}
+	self.resetOrder = self.resetOrder or {}
+	local r = { section = section and section:lower() or "", what = what or "the settings", run = run }
+	assert(not self.resets[r.section], "duplicate reset " .. r.section)
+	self.resets[r.section] = r
+	self.resetOrder[#self.resetOrder + 1] = r
+	return r
+end
+
+local function capital(s) return (tostring(s):gsub("^%l", string.upper)) end
+
+-- "/x reset" sections in help: "reset", "reset [outgoing | incoming]" or "reset outgoing | incoming".
+local function resetUsage(app)
+	local names, plain = {}, false
+	for _, r in ipairs(app.resetOrder or {}) do
+		if r.section == "" then plain = true else names[#names + 1] = r.section end
+	end
+	if #names == 0 then return "reset" end
+	local list = table.concat(names, " | ")
+	return plain and ("reset [" .. list .. "]") or ("reset " .. list)
+end
+
+-- The built-in verbs this app offers (for help and suggestions).
+function App:Verbs()
+	local v = { "help", "get", "set", "status", "version" }
+	if self.spec.chatSearch ~= false then v[#v + 1] = "search" end
+	if self.onOff then v[#v + 1] = "on"; v[#v + 1] = "off"; v[#v + 1] = "toggle" end
+	if self.movable then v[#v + 1] = "lock"; v[#v + 1] = "unlock" end
+	if self.resetOrder and #self.resetOrder > 0 then v[#v + 1] = "reset" end
+	if self.spec.feedbackURL then v[#v + 1] = "feedback" end
+	return v
+end
+
+function App:Help()
+	self:Print(self:Version() .. (self.spec.tagline and (" - " .. self.spec.tagline) or ""))
+	local cc, s = self:ColorCode(), self.slash
+	local function line(cmd, desc) DEFAULT_CHAT_FRAME:AddMessage("  " .. cc .. U.Escape(cmd) .. "|r - " .. desc) end
+	line(s, self.spec.windowDesc or "open the settings window")
+	for _, c in ipairs(self.commandOrder) do
+		if not c.hidden then line(s .. " " .. c.usage, c.desc or "") end
+	end
+	local cmds = self.commands
+	if self.onOff and not cmds.on then
+		line(s .. " on | off | toggle", "switch " .. (self.onOff.label and self.onOff.label:lower() or self.name) .. " on or off")
+	end
+	if self.movable and not cmds.unlock then
+		line(s .. " unlock | lock", "move " .. (self.movable.what or "it") .. ", then lock again")
+	end
+	if self.resetOrder and #self.resetOrder > 0 and not cmds.reset then
+		local one = #self.resetOrder == 1 and self.resetOrder[1]
+		line(s .. " " .. resetUsage(self), "back to defaults" .. (one and (": " .. one.what) or "") .. " (asks first)")
+	end
+	if #self.settingOrder > 0 then
+		local d = self.settingOrder[1]
+		local p = self:SetPrefix()
+		line(p .. "<setting> <value>", "change a setting, e.g. " .. U.Escape(p .. d.key .. " " .. self:Example(d)))
+		line(s .. " get [setting]", "every setting and its value, or one")
+	end
+	if self.spec.chatSearch ~= false then line(s .. " search <words>", "find a setting in the window") end
+	if self.spec.feedbackURL and not cmds.feedback then line(s .. " feedback", "a link for bugs and ideas") end
+	line(s .. " status | version | help", "how it is doing, its version, this list")
+	if self.spec.aliases and #self.spec.aliases > 0 then
+		DEFAULT_CHAT_FRAME:AddMessage("  " .. GREY .. "Also works as " .. U.Escape(table.concat(self.spec.aliases, ", ")) .. ".|r")
+	end
+end
+
+function App:PrintStatus()
+	local state = ""
+	if self.onOff then
+		state = " " .. (self.onOff.label or "On") .. ": " .. (self.onOff.get() and "|cff62cf88on|r" or "|cffef5d5doff|r") .. "."
+	end
+	self:Print(self:Version() .. "." .. state)
+	if not self.statusFn then return end
+	local lines = self.statusFn(self)
+	if type(lines) == "string" then lines = { lines } end
+	for _, l in ipairs(lines or {}) do DEFAULT_CHAT_FRAME:AddMessage("  " .. tostring(l)) end
+end
+
+-- "/x search <words>": the window, its search box filled. Lattice-style apps with their own window override it.
+function App:OpenSearch(text)
+	self:Open()
+	local box = self.window and self.window.searchBox
+	if not box then return end
+	text = U.Trim(text)
+	box:SetText(text)
+	if box.UpdateHint then box.UpdateHint() end
+	if text == "" then box:SetFocus() else self:Search(text) end
+end
+
+function App:HandleReset(rest)
+	local key = U.Trim(rest):lower()
+	if key == "all" and self.resets and not self.resets.all and self.resets[""] then key = "" end -- "/x reset all" = "/x reset"
+	local list = self.resetOrder or {}
+	local names = {}
+	for _, r in ipairs(list) do if r.section ~= "" then names[#names + 1] = r.section end end
+	local r = self.resets and self.resets[key]
+	if not r then
+		if #list == 0 then
+			self:Print(RED .. "nothing to reset from chat.|r The window (" .. U.Escape(self.slash) .. ") has the defaults buttons.")
+		elseif key == "" then
+			self:Print("reset what? " .. U.Escape(self.slash .. " reset " .. table.concat(names, " | ")))
+		else
+			local near = UI.Nearest(key, names)
+			self:Print(RED .. "nothing called '" .. U.Escape(key) .. "' to reset.|r "
+				.. (near and ("Did you mean " .. U.Escape(self.slash .. " reset " .. near) .. "?") or ("Choose: " .. table.concat(names, ", ") .. ".")))
+		end
+		return "reset"
+	end
+	local cmd = self.slash .. " reset" .. (key ~= "" and (" " .. key) or "")
+	local p = self.pendingReset
+	local now = GetTime()
+	if p and p.key == key and now - p.at <= UI.RESET_SECONDS then
+		self.pendingReset = nil
+		r.run(self)
+		self:Refresh()
+		self:Print(capital(r.what) .. ": back to defaults.")
+		return "reset"
+	end
+	self.pendingReset = { key = key, at = now }
+	self:Print("this puts " .. r.what .. " back to defaults. Type " .. U.Escape(cmd) .. " again within " .. UI.RESET_SECONDS .. " s to do it.")
+	return "reset-ask"
+end
+
+-- The nearest of `words` to `word`: a unique start ("stat" -> "status") or one or two typos away, else nil.
+function UI.Nearest(word, words)
+	word = tostring(word or ""):lower()
+	if word == "" then return nil end
+	local starts
+	for _, w in ipairs(words) do
+		if #word >= 2 and w:sub(1, #word) == word then
+			if starts and starts ~= w then starts = false else starts = starts == nil and w or starts end
+		end
+	end
+	if starts then return starts end
+	local limit = #word <= 2 and 0 or #word <= 5 and 1 or #word <= 8 and 2 or 3
+	local best, bestD
+	for _, w in ipairs(words) do
+		local d = Search.Distance(word, w)
+		if d <= limit and (not bestD or d < bestD) then best, bestD = w, d end
+	end
+	return best
+end
+
+-- What an unknown first word was probably meant to be: a command, a verb or a setting key; else a setting whose
+-- label, description or keywords match it ("/dv price" -> tooltip).
+function App:Suggest(word)
+	local words, seen = {}, {}
+	local function add(w) w = w:lower(); if not seen[w] then seen[w] = true; words[#words + 1] = w end end
+	for _, c in ipairs(self.commandOrder) do
+		if not c.hidden then
+			add(c.name)
+			for _, a in ipairs(c.aliases or {}) do add(a) end
+		end
+	end
+	for _, v in ipairs(self:Verbs()) do add(v) end
+	for _, def in ipairs(self.settingOrder) do add(def.key) end
+	local near = UI.Nearest(word, words)
+	if near then return near, self.settings[near] ~= nil end
+	local entries = {}
+	for _, def in ipairs(self.settingOrder) do
+		entries[#entries + 1] = Search.Entry({ label = def.label, chatLabel = def.chatLabel, key = def.key, keywords = def.keywords, desc = def.desc, def = def })
+	end
+	local found = Search.Match(entries, word)
+	if found[1] then return found[1].entry.info.def.key, true end
+	return nil
+end
+
+function App:Unknown(word, rest)
+	local near, isSetting = self:Suggest(word)
+	local try = near and (self.slash .. " " .. near .. ((rest and rest ~= "" and (isSetting or self.commands[near])) and (" " .. rest) or ""))
+	self:Print(RED .. "unknown command '" .. U.Escape(word) .. "'.|r "
+		.. (try and ("Did you mean " .. U.Escape(try) .. "? ") or "") .. U.Escape(self.slash) .. " help lists the commands.")
+end
+
+-- "/x on|off|toggle [setting]".
+local function onOffVerb(app, rest, w)
+	if rest ~= "" then
+		local key = rest:match("^(%S+)")
+		local def = app:GetSetting(key)
+		if def and def.type == "bool" then app:SetFromText(def, w) return "setting" end
+		if def then
+			app:Print(RED .. (def.chatLabel or def.label) .. " isn't on/off.|r Set it with " .. U.Escape(app:SetPrefix() .. def.key .. " " .. app:Example(def)) .. ".")
+			return "setting"
+		end
+		app:Unknown(key)
+		return "unknown"
+	end
+	local o = app.onOff
+	if not o then
+		app:Print(RED .. app.name .. " has no on/off switch of its own.|r Switch a part of it: " .. U.Escape(app.slash .. " <setting> off") .. " (" .. U.Escape(app.slash) .. " get lists them).")
+		return "unknown"
+	end
+	local on
+	if w == "toggle" then on = not o.get() else on = w == "on" end
+	o.set(on)
+	app:Refresh()
+	app:Print((o.label or app.name) .. ": " .. (o.get() and "on" or "off"))
+	return "onoff"
+end
+
+local function lockVerb(app, rest, w)
+	local m = app.movable
+	if not m then return nil end
+	local locked
+	if w == "move" then locked = not m.get() else locked = w == "lock" end
+	m.set(locked)
+	app:Refresh()
+	return locked and "lock" or "unlock"
+end
+
+-- word -> function(app, rest, word) returning what was done, or nil to go on (a setting, else unknown).
+UI.Verbs = {
+	get = function(app, rest)
+		if rest == "" then app:PrintSettings() return "settings" end
+		local def = app:GetSetting(rest:match("^(%S+)"))
+		if def then app:SetFromText(def, "") return "setting" end
+		app:Unknown(rest:match("^(%S+)"))
+		return "unknown"
+	end,
+	set = function(app, rest)
+		local key, value = rest:match("^(%S+)%s*(.*)$")
+		local def = app:GetSetting(key)
+		if def then app:SetFromText(def, value or "") return "setting" end
+		if not key then
+			app:Print("set what? " .. U.Escape(app:SetPrefix() .. "<setting> <value>") .. "; " .. U.Escape(app.slash) .. " get lists the settings.")
+			return "settings"
+		end
+		app:Unknown(key, value)
+		return "unknown"
+	end,
+	settings = function(app, rest)
+		if rest ~= "" and app:TrySetting(rest) then return "setting" end
+		app:PrintSettings()
+		return "settings"
+	end,
+	options = function(app) app:Open() return "open" end,
+	on = onOffVerb, off = onOffVerb, toggle = onOffVerb,
+	lock = lockVerb, unlock = lockVerb, move = lockVerb,
+	reset = function(app, rest) return app:HandleReset(rest) end,
+	status = function(app) app:PrintStatus() return "status" end,
+	version = function(app) app:Print(app:Version()) return "version" end,
+	search = function(app, rest) app:OpenSearch(rest) return "search" end,
+	find = function(app, rest) app:OpenSearch(rest) return "search" end,
+	feedback = function(app)
+		if not app.spec.feedbackURL then return nil end
+		app:ShowFeedback()
+		return "feedback"
+	end,
+}
+UI.Verbs.config = UI.Verbs.options
+UI.Verbs.bug = UI.Verbs.feedback
+UI.Verbs.ver = UI.Verbs.version
+
+-- The whole slash command: bare opens the window; help; the addon's commands; the shared verbs; "<setting> <value>".
 function App:HandleSlash(msg)
 	msg = U.Trim(msg)
 	if msg == "" then self:Toggle() return "toggle" end
 	local word, rest = msg:match("^(%S+)%s*(.*)$")
 	local w = word:lower()
-	if w == "help" or w == "?" then self:Help() return "help" end
+	if w == "help" or w == "?" or w == "commands" then self:Help() return "help" end
 	local c = self.commands[w]
 	if c then c.run(rest or "", self) return "command" end
-	if w == "settings" or w == "options" or w == "config" then
-		if (rest or "") == "" and w ~= "settings" then self:Open() return "open" end
-		self:PrintSettings()
-		return "settings"
+	local verb = UI.Verbs[w]
+	if verb then
+		local done = verb(self, rest or "", w)
+		if done then return done end
 	end
 	if self:TrySetting(msg) then return "setting" end
-	self:Print("|cffff6060unknown command '" .. U.Escape(word) .. "'.|r " .. U.Escape(self.slash) .. " help lists the commands.")
+	self:Unknown(word, rest)
 	return "unknown"
+end
+
+-- Registers the slash command: SLASH_<id>1 = the main command, then spec.aliases ("/everlookdb"), and
+-- SlashCmdList[id]. before(msg) returning true stops it (not ready yet, say).
+function App:RegisterSlash(id, before)
+	id = id or self.frameName:upper()
+	local words = { self.slash }
+	for _, a in ipairs(self.spec.aliases or {}) do words[#words + 1] = a end
+	for i, w in ipairs(words) do _G["SLASH_" .. id .. i] = w end
+	local app = self
+	SlashCmdList[id] = function(msg)
+		if before and before(msg) then return end
+		app:HandleSlash(msg)
+	end
 end
 
 ------------------------------------------------------------------------

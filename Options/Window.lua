@@ -563,3 +563,14 @@ end
 function Options:IsShown()
 	return window and window:IsShown()
 end
+
+-- /lattice search <words>: the window with its search box filled (empty: the box gets the focus).
+function Options:OpenSearch(text)
+	self:Open()
+	local box = window and window.searchBox
+	if not box then return end
+	text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	box:SetText(text)
+	if box.UpdateHint then box.UpdateHint() end
+	if text == "" then box:SetFocus() else self:Search(text) end
+end
