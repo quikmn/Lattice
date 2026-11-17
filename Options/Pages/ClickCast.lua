@@ -5,7 +5,9 @@ local CC = ns.ClickCast
 local function rgba(c) return c[1], c[2], c[3], c[4] or 1 end
 
 -- Helpful, non-passive spells in the player's spellbook (highest rank per name).
-local function HelpfulSpells()
+-- Your spellbook's active spells, by name: side "help" = helpful ones (the default), "harm" = harmful ones, "any" = all.
+local function SpellbookSpells(side)
+	side = side or "help"
 	local out, seen = {}, {}
 	if not (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) then return out end
 	local bank = Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
@@ -16,7 +18,7 @@ local function HelpfulSpells()
 				local item = C_SpellBook.GetSpellBookItemInfo(slot, bank)
 				if item and item.spellID and item.name and not item.isPassive and not seen[item.name] then
 					local helpful = C_SpellBook.IsSpellBookItemHelpful and C_SpellBook.IsSpellBookItemHelpful(slot, bank)
-					if helpful then
+					if side == "any" or (side == "help") == (helpful and true or false) then
 						seen[item.name] = true
 						out[#out + 1] = { value = item.spellID, text = item.name }
 					end
@@ -29,7 +31,9 @@ local function HelpfulSpells()
 	return out
 end
 
+local function HelpfulSpells() return SpellbookSpells("help") end
 O.HelpfulSpells = HelpfulSpells
+O.SpellbookSpells = SpellbookSpells
 
 local MOD_ITEMS = {
 	{ value = "", text = "No modifier" }, { value = "shift", text = "Shift" }, { value = "ctrl", text = "Ctrl" },

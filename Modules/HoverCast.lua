@@ -2,8 +2,9 @@
 --
 -- Bind a key (with modifiers) to a spell. Pressing it casts on whatever friendly
 -- unit is under the mouse: a Lattice frame, a Blizzard frame or the character
--- in the world. Optionally it falls back to the current friendly target. It
--- never falls back to yourself.
+-- in the world. The player picks, per key, who it is for (a friend, an enemy or
+-- either) and what happens with nobody under the mouse: nothing, your target,
+-- and/or yourself (yourself only when they ask for it).
 --
 -- How: each binding is a hidden SecureActionButton running a /cast macro with
 -- [@mouseover,help,nodead] conditionals, and the key is pointed at it with an
@@ -11,7 +12,8 @@
 -- restricted snippets are needed.
 --
 -- Stored per character in ns.char.hover as
---   { key = "SHIFT-1", action = "spell" | "macro", value = spellID | macro text, fallback = true }
+--   { key = "SHIFT-1", action = "spell" | "macro", value = spellID | macro text,
+--     side = "help" | "harm" | "any", fallback = true (then your target), self = false (then you) }
 local _, ns = ...
 local HC = {}
 ns.HoverCast = HC
@@ -31,11 +33,16 @@ local function Button(i)
 	return b
 end
 
+-- who a key's spell is for: the conditions it checks on the mouseover and on your target
+HC.SIDES = { help = "help,nodead", harm = "harm,nodead", any = "exists,nodead" }
+
 function HC.MacroText(h)
 	if h.action == "macro" then return h.value or "" end
 	local name = ns.ClickCast.SpellName(h.value) or tostring(h.value)
-	local cond = "[@mouseover,help,nodead]"
-	if h.fallback ~= false then cond = cond .. "[help,nodead]" end
+	local c = HC.SIDES[h.side] or HC.SIDES.help
+	local cond = "[@mouseover," .. c .. "]"
+	if h.fallback ~= false then cond = cond .. "[" .. c .. "]" end
+	if h.self and h.side ~= "harm" then cond = cond .. "[@player]" end
 	return "/cast " .. cond .. " " .. name
 end
 
@@ -90,7 +97,7 @@ function HC.CleanList(list)
 			or h.action == "macro" and type(h.value) == "string" and h.value ~= "")
 		if ok then
 			out[#out + 1] = { key = key, action = h.action, value = h.action == "spell" and tonumber(h.value) or h.value,
-				fallback = h.fallback ~= false }
+				fallback = h.fallback ~= false, side = HC.SIDES[h.side] and h.side or "help", self = h.self == true }
 		end
 	end
 	table.sort(out, function(a, b) return a.key < b.key end)

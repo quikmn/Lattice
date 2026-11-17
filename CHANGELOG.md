@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Hover-casting: each key now lets you choose who the spell is for (a friend, an enemy, or either), whether it falls back to your target, and whether it then falls back to you. Enemy keys list your damage spells. Existing keys keep working as before (friend, then target, never you).
+
 - Hide long buffs now hides only buffs over 10 minutes, so Thorns and Inner Fire show again (hour-long buffs like Fortitude still hide).
 - Hide Blizzard's frames keeps the raid manager (ready check, role check, world markers).
 

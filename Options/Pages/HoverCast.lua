@@ -37,7 +37,7 @@ end
 
 O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	W.Header(s, "Hover-casting", "Press a key to cast on whoever your mouse is over: a Lattice frame, another unit frame, or the player in the world. Saved per character.")
-	W.Note(s, "It never casts on you by accident. If nobody friendly is under the mouse it uses your friendly target (if you allow it below), otherwise it does nothing. The key no longer does what it did before while it's bound here, so pick keys you don't need for anything else.")
+	W.Note(s, "For each key you choose who the spell is for (a friend, an enemy or either) and what happens when nobody fitting is under the mouse: use your target, use yourself, or do nothing. The key no longer does what it did before while it's bound here, so pick keys you don't need for anything else.")
 	if InCombatLockdown() then
 		W.Note(s, "|cffffcc66You're in combat. Changes apply when combat ends.|r")
 	end
@@ -64,7 +64,10 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 		what:SetWordWrap(false)
 		local desc = h.action == "spell" and (CC.SpellName(h.value) or ("Spell #" .. tostring(h.value))) or "Macro"
 		if h.action == "spell" then
-			desc = desc .. (h.fallback ~= false and "  |cff888888(mouseover, then target)|r" or "  |cff888888(mouseover only)|r")
+			local chain = { (h.side == "harm" and "enemy" or h.side == "any" and "anyone" or "friend") .. " under the mouse" }
+			if h.fallback ~= false then chain[#chain + 1] = "target" end
+			if h.self and h.side ~= "harm" then chain[#chain + 1] = "you" end
+			desc = desc .. "  |cff888888(" .. table.concat(chain, ", then ") .. ")|r"
 		end
 		what:SetText(desc)
 		local del = W.Button(row, "Remove", function()
@@ -77,7 +80,7 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	end
 
 	W.Header(s, "Add a hover-cast key")
-	local draft = { key = nil, action = "spell", value = nil, fallback = true, macro = "" }
+	local draft = { key = nil, action = "spell", value = nil, fallback = true, side = "help", self = false, macro = "" }
 
 	local keyRow = CreateFrame("Frame")
 	local keyLabel = W.Text(keyRow, T.font, T.text)
@@ -88,7 +91,11 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	capture:SetPoint("TOPLEFT", 0, -18)
 	s:Add(keyRow, 46)
 
-	W.Dropdown(s, { label = "Spell (from your spellbook)", items = O.HelpfulSpells, width = 300,
+	W.Dropdown(s, { label = "Who it's for",
+		desc = "Friend for heals and buffs, enemy for damage, either for spells that do both (Penance, Dispel Magic).",
+		items = { { value = "help", text = "A friend" }, { value = "harm", text = "An enemy" }, { value = "any", text = "Friend or enemy" } },
+		get = function() return draft.side end, set = function(v) draft.side = v; s:RefreshAll() end })
+	W.Dropdown(s, { label = "Spell (from your spellbook)", items = function() return O.SpellbookSpells(draft.side) end, width = 300,
 		format = CC.SpellName,
 		get = function() return draft.value end,
 		set = function(v) draft.value = v; draft.action = "spell" end })
@@ -114,8 +121,10 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 	end)
 	s:Add(spellRow, 44)
 
-	W.Toggle(s, { label = "If nobody is under the mouse, cast on my friendly target",
+	W.Toggle(s, { label = "If nobody fitting is under the mouse, cast on my target",
 		get = function() return draft.fallback end, set = function(v) draft.fallback = v end })
+	W.Toggle(s, { label = "If there's still nobody, cast on me (friendly spells only)",
+		get = function() return draft.self end, set = function(v) draft.self = v end })
 
 	local add = W.Button(nil, "Add hover-cast key", function()
 		if not draft.key then
@@ -126,7 +135,7 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 			feedback.text:SetText("|cffff7070Pick or type a spell first.|r")
 			return
 		end
-		HC:Add({ key = draft.key, action = "spell", value = draft.value, fallback = draft.fallback })
+		HC:Add({ key = draft.key, action = "spell", value = draft.value, fallback = draft.fallback, side = draft.side, self = draft.self })
 		O:RebuildPage("hovercast")
 	end, 170, "accent")
 	s:Add(add, 26)

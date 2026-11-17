@@ -196,6 +196,11 @@ step("hover-cast keys", function()
 	end
 	check(textFor("SHIFT-1"):find("[@mouseover,help,nodead][help,nodead]", 1, true), "fallback macro wrong: " .. textFor("SHIFT-1"))
 	check(not textFor("CTRL-SHIFT-2"):find("[help,nodead]", 1, true), "no-fallback macro wrong: " .. textFor("CTRL-SHIFT-2"))
+	check(not textFor("SHIFT-1"):find("@player", 1, true), "self fallback without asking")
+	check(HC.MacroText({ action = "spell", value = 139, side = "harm", fallback = true, self = true }):find("[@mouseover,harm,nodead][harm,nodead] ", 1, true)
+		and not HC.MacroText({ action = "spell", value = 139, side = "harm", self = true }):find("@player", 1, true), "enemy key")
+	check(HC.MacroText({ action = "spell", value = 139, side = "help", fallback = true, self = true }):find("[help,nodead][@player] ", 1, true), "self fallback when asked")
+	check(HC.MacroText({ action = "spell", value = 139, side = "any", fallback = false }):find("/cast [@mouseover,exists,nodead] ", 1, true), "either side")
 	check(not textFor("SHIFT-1"):find("@player", 1, true), "must never target self")
 	-- in combat: changes queue, no protected calls
 	MOCK.combat = true
