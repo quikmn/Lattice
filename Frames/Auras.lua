@@ -362,7 +362,7 @@ end
 
 -- One flowing row of icons. Spells on the "always show" list come first (from
 -- anyone); the normal group skips both listed and hidden spells.
-local LONG_BUFF = 300
+local LONG_BUFF = 601   -- 10 minutes: Thorns, Inner Fire and Fear Ward stay; hour-long buffs (Fortitude, Mark) go
 
 -- Big defensives (Classic): the game's BIG_DEFENSIVE flag lets ordinary buffs through on Forever (Arcane Intellect,
 -- Find Herbs), so the slot only shows these. Spells the game won't let addons check by ID simply don't show.

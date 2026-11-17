@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Hide long buffs now hides only buffs over 10 minutes, so Thorns and Inner Fire show again (hour-long buffs like Fortitude still hide).
+- Hide Blizzard's frames keeps the raid manager (ready check, role check, world markers).
+
 - Fear Ward is on Always show by default, so a priest sees it on the tank. It lasts 10 minutes, and "Hide long buffs" (over 5 minutes) kept it out of the buff row.
 - Fix: a preview left on hid your real frames, even in combat. The preview now stops when combat starts and says so in chat.
 - `/lattice unlock` and `/lattice lock` do what they say (before, both just switched), and say so in chat. Frames lock when combat starts, also while you are holding a box; the settings window's Unlock and Preview buttons always show the current state.

@@ -174,7 +174,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 		disabled = noBuffs,
 	}))
 	W.Toggle(s, Bind("auras.buffs.hideLong", "auras", {
-		label = "Hide long buffs (over 5 minutes)",
+		label = "Hide long buffs (over 10 minutes)",
 		desc = "Fortitude, Mark of the Wild and the like, so HoTs and shields stand out. Spells on Always show still show.",
 		disabled = noBuffs,
 	}))

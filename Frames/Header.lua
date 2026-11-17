@@ -498,6 +498,6 @@ function H:HideBlizzard()
 		end
 		if _G.PartyFrame then Kill(_G.PartyFrame) end
 		if _G.CompactRaidFrameContainer then Kill(_G.CompactRaidFrameContainer) end
-		if _G.CompactRaidFrameManager then Kill(_G.CompactRaidFrameManager) end
+		-- the raid manager stays: raid leaders need its ready check, role check and world markers
 	end)
 end
