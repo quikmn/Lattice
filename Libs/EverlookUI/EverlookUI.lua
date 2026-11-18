@@ -25,7 +25,10 @@
 -- page, by label, description, page and heading, a dropdown's value and choices, the chat-command name and
 -- optional keywords: app:Setting({ ..., keywords = { "opacity", "alpha" } }) or a widget's/button's opt.keywords.
 -- opt.search = false keeps a widget out. Results are the real controls, borrowed from their page while listed.
-local MAJOR, MINOR = "EverlookUI-1", 4
+--
+-- AI help (EverlookUI 5): an "AI help" button by the search box and "/x ai" copy a description of every setting
+-- for an AI assistant; "/x apply" takes its answer back (see "AI help" below and COMMANDS.md).
+local MAJOR, MINOR = "EverlookUI-1", 5
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
@@ -1489,6 +1492,7 @@ local App = UI.App
 App.__index = App
 
 local SIDEBAR_W = 170
+local AI_BUTTON_W = 76
 
 local function addonVersion(addon)
 	local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
@@ -1587,7 +1591,10 @@ function App:Accepts(def)
 	if def.type == "number" then
 		return string.format(numFmt(def), def.min) .. " to " .. string.format(numFmt(def), def.max)
 	end
-	if def.type == "color" then return "a colour like ff8040 (hex) or 1 0.5 0.25" end
+	if def.type == "color" then
+		return def.hasAlpha and "a colour like ff8040 (hex) or 1 0.5 0.25 (0-1), opacity as a 4th number: 1 0.5 0.25 0.6"
+			or "a colour like ff8040 (hex) or 1 0.5 0.25"
+	end
 	if def.type == "choice" then
 		local t = {}
 		for _, c in ipairs(def.choices) do t[#t + 1] = tostring(c.value) end
@@ -1627,13 +1634,19 @@ function App:Parse(def, text)
 		if found then return true, found.value end
 		return false, "needs one of: " .. self:Accepts(def)
 	elseif def.type == "color" then
+		-- a colour with opacity keeps its opacity unless a 4th number gives a new one
+		local cur = def.hasAlpha and def.get and def.get()
+		local keepA = type(cur) == "table" and tonumber(cur[4]) or 1
 		local h = text:match("^#?(%x%x%x%x%x%x)$")
 		if h then
-			return true, { tonumber(h:sub(1, 2), 16) / 255, tonumber(h:sub(3, 4), 16) / 255, tonumber(h:sub(5, 6), 16) / 255, 1 }
+			return true, { tonumber(h:sub(1, 2), 16) / 255, tonumber(h:sub(3, 4), 16) / 255, tonumber(h:sub(5, 6), 16) / 255, keepA }
 		end
-		local r, g, b = text:match("^([%d%.]+)[%s,]+([%d%.]+)[%s,]+([%d%.]+)$")
+		local r, g, b, a = text:match("^([%d%.]+)[%s,]+([%d%.]+)[%s,]+([%d%.]+)[%s,]*([%d%.]*)$")
 		r, g, b = tonumber(r), tonumber(g), tonumber(b)
-		if r and g and b and r <= 1 and g <= 1 and b <= 1 then return true, { r, g, b, 1 } end
+		a = (a ~= nil and a ~= "") and tonumber(a) or nil
+		if r and g and b and r <= 1 and g <= 1 and b <= 1 and (not a or a <= 1) then
+			return true, { r, g, b, def.hasAlpha and a or (a and 1) or keepA }
+		end
 		return false, "needs " .. self:Accepts(def)
 	end
 	if def.validate then
@@ -1674,12 +1687,25 @@ function App:SetFromText(def, text)
 	return true
 end
 
+-- The setting a chat word names. An addon with keys beyond its registry overrides this ("bar2.edge" in Everlook
+-- Bar): it returns def, prepare, where prepare() readies the def (picks bar 2) and may return a function that
+-- undoes that; or nil, why.
+function App:ResolveSetting(word)
+	return self:GetSetting(word)
+end
+
+-- Set or show `def` from chat text, after its prepare step.
+local function setResolved(app, def, prepare, text)
+	if prepare then prepare() end
+	return app:SetFromText(def, text or "")
+end
+
 -- Try "<setting> [value]"; true when the first word named a setting.
 function App:TrySetting(msg)
 	local word, rest = U.Trim(msg):match("^(%S+)%s*(.*)$")
-	local def = self:GetSetting(word)
+	local def, prepare = self:ResolveSetting(word)
 	if not def then return false end
-	self:SetFromText(def, rest or "")
+	setResolved(self, def, prepare, rest)
 	return true
 end
 
@@ -1771,6 +1797,7 @@ function App:Verbs()
 	if self.movable then v[#v + 1] = "lock"; v[#v + 1] = "unlock" end
 	if self.resetOrder and #self.resetOrder > 0 then v[#v + 1] = "reset" end
 	if self.spec.feedbackURL then v[#v + 1] = "feedback" end
+	if #self.settingOrder > 0 then v[#v + 1] = "ai"; v[#v + 1] = "apply" end
 	return v
 end
 
@@ -1796,8 +1823,11 @@ function App:Help()
 	if #self.settingOrder > 0 then
 		local d = self.settingOrder[1]
 		local p = self:SetPrefix()
-		line(p .. "<setting> <value>", "change a setting, e.g. " .. U.Escape(p .. d.key .. " " .. self:Example(d)))
+		line(p .. "<setting> <value>", "change a setting, e.g. " .. U.Escape(p .. d.key .. " " .. self:Example(d))
+			.. "; several on one line: " .. U.Escape(s .. " set <setting> <value> ; <setting> <value>"))
 		line(s .. " get [setting]", "every setting and its value, or one")
+		if not cmds.ai then line(s .. " ai", "copy a description of every setting for an AI assistant (Claude or another)") end
+		if not cmds.apply then line(s .. " apply", "paste the AI's answer: shows each change, then applies the settings") end
 	end
 	if self.spec.chatSearch ~= false then line(s .. " search <words>", "find a setting in the window") end
 	if self.spec.feedbackURL and not cmds.feedback then line(s .. " feedback", "a link for bugs and ideas") end
@@ -1919,8 +1949,8 @@ end
 local function onOffVerb(app, rest, w)
 	if rest ~= "" then
 		local key = rest:match("^(%S+)")
-		local def = app:GetSetting(key)
-		if def and def.type == "bool" then app:SetFromText(def, w) return "setting" end
+		local def, prepare = app:ResolveSetting(key)
+		if def and def.type == "bool" then setResolved(app, def, prepare, w) return "setting" end
 		if def then
 			app:Print(RED .. (def.chatLabel or def.label) .. " isn't on/off.|r Set it with " .. U.Escape(app:SetPrefix() .. def.key .. " " .. app:Example(def)) .. ".")
 			return "setting"
@@ -1951,19 +1981,36 @@ local function lockVerb(app, rest, w)
 	return locked and "lock" or "unlock"
 end
 
+-- "a 1 ; b 2" -> { "a 1", "b 2" }: the changes of one "/x set" line (a ";" with a space on both sides splits).
+function UI.SplitSets(rest)
+	local parts = {}
+	for part in (tostring(rest or "") .. " ; "):gmatch("(.-)%s+;%s+") do
+		part = U.Trim(part)
+		if part ~= "" then parts[#parts + 1] = part end
+	end
+	if #parts == 0 and U.Trim(rest) ~= "" then parts[1] = U.Trim(rest) end
+	return parts
+end
+
 -- word -> function(app, rest, word) returning what was done, or nil to go on (a setting, else unknown).
 UI.Verbs = {
 	get = function(app, rest)
 		if rest == "" then app:PrintSettings() return "settings" end
-		local def = app:GetSetting(rest:match("^(%S+)"))
-		if def then app:SetFromText(def, "") return "setting" end
+		local def, prepare = app:ResolveSetting(rest:match("^(%S+)"))
+		if def then setResolved(app, def, prepare, "") return "setting" end
 		app:Unknown(rest:match("^(%S+)"))
 		return "unknown"
 	end,
 	set = function(app, rest)
+		-- several at once on one line: "/x set size 20 ; flag off"
+		local parts = UI.SplitSets(rest)
+		if #parts > 1 then
+			for _, part in ipairs(parts) do UI.Verbs.set(app, part) end
+			return "setting"
+		end
 		local key, value = rest:match("^(%S+)%s*(.*)$")
-		local def = app:GetSetting(key)
-		if def then app:SetFromText(def, value or "") return "setting" end
+		local def, prepare = app:ResolveSetting(key)
+		if def then setResolved(app, def, prepare, value) return "setting" end
 		if not key then
 			app:Print("set what? " .. U.Escape(app:SetPrefix() .. "<setting> <value>") .. "; " .. U.Escape(app.slash) .. " get lists the settings.")
 			return "settings"
@@ -1988,6 +2035,16 @@ UI.Verbs = {
 		if not app.spec.feedbackURL then return nil end
 		app:ShowFeedback()
 		return "feedback"
+	end,
+	ai = function(app)
+		if #app.settingOrder == 0 then return nil end
+		app:ShowAiHelp()
+		return "ai"
+	end,
+	apply = function(app, rest)
+		if #app.settingOrder == 0 then return nil end
+		app:ShowApply(rest ~= "" and rest or nil)
+		return "apply"
 	end,
 }
 UI.Verbs.config = UI.Verbs.options
@@ -2626,18 +2683,29 @@ function App:CreateWindow()
 	f.content = content
 	f.contentWidth = W - contentLeft - T.pad
 
-	-- the search box, top centre: over the page column, or in the title row of a one-page window
+	-- the search box, top centre: over the page column, or in the title row of a one-page window;
+	-- the AI help button (a plain one) just right of it, when the addon has settings
+	local aiW = #self.settingOrder > 0 and AI_BUTTON_W or nil
+	local box
 	if sidebar then
-		local boxW = math.min(300, W - SIDEBAR_W - 120)
-		local box = self:CreateSearch(f, boxW)
+		local boxW = math.min(300, W - SIDEBAR_W - 120 - (aiW and aiW + 8 or 0))
+		box = self:CreateSearch(f, boxW)
 		box:SetPoint("TOP", f, "TOPLEFT", SIDEBAR_W + 1 + (W - SIDEBAR_W - 1) / 2, -12)
 	else
-		local boxW, right = 240, W - 44 -- clear of the close button
+		local boxW, right = 240, W - 44 - (aiW and aiW + 8 or 0) -- clear of the close button
 		local left = math.floor((W - boxW) / 2)
 		if left < titleRight + 16 then left = math.ceil(titleRight + 16) end
 		if left + boxW > right then boxW = math.max(140, right - left) end
-		local box = self:CreateSearch(f, boxW)
+		box = self:CreateSearch(f, boxW)
 		box:SetPoint("TOPLEFT", f, "TOPLEFT", left, -10)
+	end
+	if aiW then
+		local ai = UI.Button(f, "AI help", function() app:ShowAiHelp() end, aiW)
+		ai:SetPoint("LEFT", box, "RIGHT", 8, 0)
+		Tooltip(ai, "Get help from AI to configure this addon",
+			"Copies a description of every setting. Paste it into Claude or another AI with what you want; then paste its answer into "
+			.. self.slash .. " apply.")
+		f.aiButton = ai
 	end
 
 	f:SetScript("OnShow", function()
@@ -2735,6 +2803,623 @@ function App:ShowFeedback()
 	end
 	self.feedback:Show()
 	return self.feedback
+end
+
+------------------------------------------------------------------------
+-- AI help (EverlookUI 5). "/x ai" and the "AI help" button by the search box show a description of every
+-- setting, selected for Ctrl+C: the player pastes it into Claude or another AI with what they want. "/x apply"
+-- takes the AI's answer: a preview line per change ("Size (size): 18 -> 20"), then Apply. Addons can't write the
+-- clipboard and chat runs only the first line of a paste, hence the two windows. From the apply box only setting
+-- changes, get, on/off/toggle and lock/unlock run; reset and the addon's own commands are refused (chat only).
+--   spec.aiAbout   a paragraph: what the addon does and how it works (else the tagline)
+--   spec.siteURL   the addon's page; the text links it, and spec.feedbackURL
+--   def.default    a setting's default, a value or a function (shown to the AI when given)
+--   app:AiExtra(function(app) return "text" end)   more context after the settings (bars, placed plugins...)
+--   app:ResolveSetting(word)                        keys beyond the registry (see "Chat commands")
+-- The text is built from the live registry (app:AiText()), so it is always complete and current; settings are
+-- grouped by page and heading as in the window (from the search index), the rest under "More settings".
+------------------------------------------------------------------------
+function App:AiExtra(fn) self.aiExtraFn = fn end
+
+-- Text for the AI: no colour codes or textures. A "|r" counts as a code only after a "|c": usage lines
+-- like "left|center|right" keep their letters.
+local function plain(s)
+	s = tostring(s or "")
+	if s:find("|c%x%x%x%x%x%x%x%x") then s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "") end
+	s = s:gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|n", " "):gsub("||", "|")
+	return s
+end
+UI.Plain = plain
+
+-- 0.6 -> "0.6", 1 -> "1"
+local function short(v)
+	if type(v) ~= "number" then return tostring(v) end
+	local s = string.format("%.3f", v):gsub("0+$", ""):gsub("%.$", "")
+	if s == "-0" then s = "0" end
+	return s
+end
+
+-- A sentence ends with a full stop.
+local function sentence(s)
+	s = U.Trim(plain(s))
+	if s ~= "" and not s:find("[%.!%?:]$") then s = s .. "." end
+	return s
+end
+
+-- The word that picks a choice from chat: its value, or its label for an empty value ("" = None).
+local function choiceWord(c)
+	local v = tostring(c.value)
+	if v == "" then return plain(c.text):lower() end
+	return v
+end
+
+-- A value as the AI reads it (and the apply preview shows it).
+function App:AiValue(def, v)
+	local t = def.type
+	if t == "bool" then return v and "on" or "off" end
+	if v == nil then return "(not set)" end
+	if t == "number" then return tonumber(v) and string.format(numFmt(def), v) or tostring(v) end
+	if t == "choice" then
+		for _, c in ipairs(def.choices or {}) do
+			if c.value == v then
+				local w, text = choiceWord(c), plain(c.text)
+				return w:lower() == text:lower() and w or (w .. " (" .. text .. ")")
+			end
+		end
+		return tostring(v)
+	end
+	if t == "color" then
+		if type(v) ~= "table" then return tostring(v) end
+		local n, parts = def.hasAlpha and 4 or 3, {}
+		for i = 1, n do parts[i] = short(tonumber(v[i]) or 1) end
+		return table.concat(parts, " ") .. " (#" .. hex({ tonumber(v[1]) or 0, tonumber(v[2]) or 0, tonumber(v[3]) or 0 }) .. ")"
+	end
+	return '"' .. plain(v) .. '"'
+end
+
+-- What a setting takes, for the AI.
+function App:AiType(def)
+	local t = def.type
+	if t == "bool" then return "On/off" end
+	if t == "number" then
+		return "Number " .. short(def.min) .. " to " .. short(def.max) .. (def.step and (", step " .. short(def.step)) or "")
+	end
+	if t == "choice" then
+		local list = {}
+		for _, c in ipairs(def.choices or {}) do
+			local w, text = choiceWord(c), plain(c.text)
+			list[#list + 1] = w:lower() == text:lower() and w or (w .. " = " .. text)
+		end
+		return "Choice: " .. table.concat(list, "; ")
+	end
+	if t == "color" then
+		return def.hasAlpha and "Colour: hex rrggbb, or r g b a as 0-1 numbers (a = opacity)" or "Colour: hex rrggbb, or r g b as 0-1 numbers"
+	end
+	return "Text"
+end
+
+-- One setting: "- key: Label. Type. Now: value. Default: value. Help: ... Also found as: ..."
+function App:AiSettingLine(def, label)
+	local parts = { "- " .. def.key .. ": " .. sentence(label or def.label), self:AiType(def) .. "." }
+	local ok, v = pcall(def.get)
+	parts[#parts + 1] = "Now: " .. (ok and self:AiValue(def, v) or "(unknown)") .. "."
+	local d = def.default
+	if type(d) == "function" then
+		local okD, dv = pcall(d)
+		d = okD and dv or nil
+	end
+	if d ~= nil then parts[#parts + 1] = "Default: " .. self:AiValue(def, d) .. "." end
+	if def.disabled then
+		local okOff, off = pcall(def.disabled)
+		if okOff and off then parts[#parts + 1] = "Greyed out in the window right now (depends on another setting)." end
+	end
+	if def.desc then parts[#parts + 1] = "Help: " .. sentence(def.desc) end
+	local kw = def.keywords
+	if type(kw) == "table" then kw = table.concat(kw, ", ") end
+	if type(kw) == "string" and kw ~= "" then parts[#parts + 1] = "Also found as: " .. kw .. "." end
+	return table.concat(parts, " ")
+end
+
+-- The settings grouped by page and heading as in the window: { { title = "Bars » Layout", defs = { ... } }, ... }.
+-- Builds the window's pages (hidden) the way the search does; settings on no page come last.
+function App:AiGroups()
+	if not self.window and #self.order > 0 then
+		local ok, err = pcall(self.CreateWindow, self)
+		if not ok then
+			local handler = geterrorhandler and geterrorhandler()
+			if handler then handler(err) end
+		end
+	end
+	if self.window and self.window.content then self:EnsureSearchIndex() end
+	local groups, byPath, placed = {}, {}, {}
+	for _, e in ipairs(self:SearchEntries()) do
+		local def = e.info.key and self:GetSetting(e.info.key)
+		if def and not placed[def] then
+			placed[def] = true
+			local g = byPath[e.path]
+			if not g then
+				g = { title = e.path, defs = {} }
+				byPath[e.path] = g
+				groups[#groups + 1] = g
+			end
+			g.defs[#g.defs + 1] = def
+		end
+	end
+	local rest = {}
+	for _, def in ipairs(self.settingOrder) do if not placed[def] then rest[#rest + 1] = def end end
+	if #rest > 0 then groups[#groups + 1] = { title = #groups > 0 and "More settings" or "Settings", defs = rest, loose = true } end
+	return groups
+end
+
+-- The whole text for the AI.
+function App:AiText()
+	local spec, s, p = self.spec, self.slash, self:SetPrefix()
+	local out = {}
+	local function add(line) out[#out + 1] = line or "" end
+	add(self.name .. " " .. self:Version() .. ", a World of Warcraft addon: its settings, for an AI assistant.")
+	add()
+	local about = spec.aiAbout and sentence(spec.aiAbout)
+	if not about then
+		about = sentence(spec.tagline or (self.name .. " is a World of Warcraft addon"))
+		about = about .. (#self.order > 0
+			and (" Its settings window opens with " .. s .. ", and every setting below can also be changed with a chat command.")
+			or " Every setting below can be changed with a chat command.")
+	end
+	add(about)
+	if spec.siteURL then add("Addon page: " .. spec.siteURL) end
+	if spec.feedbackURL then add("Bugs and ideas: " .. spec.feedbackURL) end
+	add()
+	add("HOW TO ANSWER")
+	add("The player says at the end what they want. Then:")
+	add("- Answer with chat commands only, one per line, using exactly these setting keys and allowed values. A setting command is: " .. p .. "<key> <value>")
+	add("- Explain briefly what each line does, on its own line starting with # just above the command.")
+	add("- Don't invent settings, keys or values. If something can't be done with these settings, say so.")
+	add("- Give all the lines together in one block: the player pastes that block into the apply window (" .. s .. " apply), "
+		.. "which skips blank lines and lines starting with #, shows every change and then applies them.")
+	add("- To fit it in one chat line instead, join the changes after set with \" ; \": " .. s .. " set <key> <value> ; <key> <value>")
+	add("- The apply window only changes settings (and on/off, lock/unlock). The other commands at the end have to be typed in chat, one at a time: say so if your answer needs one.")
+	add("- Values: on or off; a number inside the range; one of the listed choice words; a colour as hex like ff8040 or as 0-1 numbers like 1 0.5 0.25; text as it is.")
+	add()
+	add("SETTINGS (key: label. Type. Current value. Default, when known.)")
+	for _, g in ipairs(self:AiGroups()) do
+		add()
+		add(plain(g.title) .. ":")
+		for _, def in ipairs(g.defs) do add(self:AiSettingLine(def, g.loose and (def.chatLabel or def.label) or def.label)) end
+	end
+	if self.onOff or self.movable then
+		add()
+		add("SWITCHES (the apply window runs these too)")
+		if self.onOff then
+			local ok, on = pcall(self.onOff.get)
+			add("- " .. s .. " on / off / toggle: " .. sentence(self.onOff.label or self.name) .. " Now: " .. (ok and (on and "on" or "off") or "?") .. ".")
+		end
+		if self.movable then
+			local ok, locked = pcall(self.movable.get)
+			add("- " .. s .. " unlock / lock: move " .. sentence(self.movable.what or "it") .. " Now: " .. (ok and (locked and "locked" or "unlocked") or "?") .. ".")
+		end
+	end
+	add()
+	add("OTHER COMMANDS (chat only, one at a time; the apply window doesn't run these)")
+	for _, c in ipairs(self.commandOrder) do
+		if not c.hidden then add("- " .. s .. " " .. plain(c.usage) .. ": " .. sentence(c.desc or "")) end
+	end
+	local shared = { s .. " (the settings window)", s .. " help", s .. " get [key]", s .. " status", s .. " version" }
+	if self.spec.chatSearch ~= false then shared[#shared + 1] = s .. " search <words>" end
+	if self.resetOrder and #self.resetOrder > 0 then shared[#shared + 1] = s .. " " .. resetUsage(self) .. " (back to defaults; asks first)" end
+	shared[#shared + 1] = s .. " ai (this text)"
+	shared[#shared + 1] = s .. " apply (the apply window)"
+	add("- Shared by every EverlookDB addon: " .. table.concat(shared, ", ") .. ".")
+	if self.aiExtraFn then
+		local ok, extra = pcall(self.aiExtraFn, self)
+		if not ok then
+			local handler = geterrorhandler and geterrorhandler()
+			if handler then handler(extra) end
+		elseif type(extra) == "string" and extra ~= "" then
+			add()
+			add("MORE ABOUT " .. self.name:upper())
+			add(plain(extra))
+		end
+	end
+	add()
+	add("WHAT THE PLAYER WANTS")
+	add("(written below)")
+	-- a lone "|" starts an escape code in an edit box: write "or"-bars as slashes
+	return (table.concat(out, "\n"):gsub("%s*|%s*", " / "))
+end
+
+-- Same value? (colours by component, numbers within a hair)
+local function sameValue(def, a, b)
+	if def.type == "color" then
+		if type(a) ~= "table" or type(b) ~= "table" then return false end
+		for i = 1, 4 do
+			if math.abs((tonumber(a[i]) or 1) - (tonumber(b[i]) or 1)) > 0.002 then return false end
+		end
+		return true
+	end
+	if def.type == "number" then return tonumber(a) ~= nil and tonumber(b) ~= nil and math.abs(a - b) < 1e-9 end
+	if def.type == "bool" then return (a and true or false) == (b and true or false) end
+	return a == b
+end
+
+-- Read the AI's answer without changing anything. One row per change, read or problem:
+-- { n (line number), line, kind = "set" | "get" | "onoff" | "lock", label, key, def, prepare, old, value, same }
+-- or { n, line, err, hint }. Lines may start with the slash command (or an alias) or not; blank lines, lines
+-- starting with # and code fences are skipped; "set a 1 ; b 2" gives two rows.
+function App:PlanApply(text)
+	local app, rows, n = self, {}, 0
+	local slashes = { [self.slash:lower()] = true }
+	for _, a in ipairs(self.spec.aliases or {}) do slashes[a:lower()] = true end
+	local function bad(line, err, hint) rows[#rows + 1] = { n = n, line = line, err = err, hint = hint } end
+
+	local function setRow(line, body)
+		local key, value = body:match("^(%S+)%s*(.*)$")
+		local def, prepare = app:ResolveSetting(key)
+		if not def then
+			if type(prepare) == "string" then return bad(line, prepare) end
+			local near, isSetting = app:Suggest(key)
+			return bad(line, "no setting called '" .. key .. "'",
+				near and isSetting and ("Did you mean " .. app:SetPrefix() .. near .. (value ~= "" and (" " .. value) or "") .. "?") or nil)
+		end
+		local undo = prepare and prepare()
+		local okGet, old = pcall(def.get)
+		local row = { n = n, line = line, key = key, def = def, prepare = prepare, label = def.chatLabel or def.label, old = okGet and old or nil }
+		if U.Trim(value) == "" then
+			row.kind = "get"
+		else
+			local ok, v = app:Parse(def, value)
+			if ok then
+				row.kind, row.value = "set", v
+				row.same = okGet and sameValue(def, old, v)
+			else
+				row.err = row.label .. ": " .. v
+				row.hint = "Example: " .. app:SetPrefix() .. key .. " " .. app:Example(def)
+			end
+		end
+		if type(undo) == "function" then undo() end
+		rows[#rows + 1] = row
+	end
+
+	local function planLine(line)
+		local body = U.Trim((line:gsub("^[-*]%s+", ""):gsub("^%d+[%.%)]%s+", "")))
+		body = U.Trim((body:gsub("^`(.*)`$", "%1")))
+		if body:sub(1, 1) == "/" then
+			local cmd, after = body:match("^(%S+)%s*(.*)$")
+			if not slashes[cmd:lower()] then return bad(line, cmd .. " is another addon's command: paste it into " .. cmd .. " apply") end
+			body = after
+			if body == "" then return bad(line, "that opens the window; nothing to apply") end
+		end
+		local word, rest = body:match("^(%S+)%s*(.*)$")
+		local w = word:lower()
+		if app.commands[w] then
+			return bad(line, "'" .. word .. "' is a command, not a setting change: type it in chat if you want it")
+		end
+		if w == "set" then
+			local parts = UI.SplitSets(rest)
+			if #parts == 0 then return bad(line, "set what? " .. app:SetPrefix() .. "<setting> <value>") end
+			for _, part in ipairs(parts) do setRow(line, part) end
+			return
+		end
+		if w == "get" then
+			if rest == "" then return bad(line, "get which setting?") end
+			return setRow(line, rest:match("^(%S+)"))
+		end
+		if w == "on" or w == "off" or w == "toggle" then
+			if rest ~= "" then
+				local key = rest:match("^(%S+)")
+				local def = app:ResolveSetting(key)
+				if def and def.type ~= "bool" then
+					return bad(line, (def.chatLabel or def.label) .. " isn't on/off", "Example: " .. app:SetPrefix() .. key .. " " .. app:Example(def))
+				end
+				return setRow(line, key .. " " .. w)
+			end
+			local o = app.onOff
+			if not o then return bad(line, app.name .. " has no on/off switch of its own; switch a setting instead") end
+			local ok, cur = pcall(o.get)
+			cur = ok and cur and true or false
+			local v
+			if w == "toggle" then v = not cur else v = w == "on" end
+			rows[#rows + 1] = { n = n, line = line, kind = "onoff", label = o.label or app.name, old = cur, value = v, same = cur == v }
+			return
+		end
+		if w == "lock" or w == "unlock" or w == "move" then
+			local m = app.movable
+			if not m then return bad(line, app.name .. " has nothing to lock or unlock") end
+			local ok, cur = pcall(m.get)
+			cur = ok and cur and true or false
+			local v
+			if w == "move" then v = not cur else v = w == "lock" end
+			rows[#rows + 1] = { n = n, line = line, kind = "lock", label = "Locked (" .. (m.what or "moving") .. ")", old = cur, value = v, same = cur == v }
+			return
+		end
+		if w == "reset" then return bad(line, "reset isn't run from here; type it in chat if you mean it (it asks first)") end
+		if not app:ResolveSetting(word) and (UI.Verbs[w] or w == "help" or w == "?" or w == "commands") then
+			return bad(line, "'" .. word .. "' isn't a setting change: type it in chat if you want it")
+		end
+		return setRow(line, body)
+	end
+
+	local src = tostring(text or ""):gsub("\r\n?", "\n")
+	for raw in (src .. "\n"):gmatch("([^\n]*)\n") do
+		n = n + 1
+		local line = U.Trim(raw)
+		if line ~= "" and line:sub(1, 1) ~= "#" and line:sub(1, 3) ~= "```" then planLine(line) end
+	end
+	return rows
+end
+
+-- A preview line for a row and its colour.
+function App:PreviewLine(r)
+	local T = self.T
+	if r.err then
+		return "Line " .. r.n .. ": " .. r.line .. "  -  " .. r.err .. "." .. (r.hint and (" " .. r.hint) or ""), T.danger
+	end
+	local function show(v)
+		if r.kind == "onoff" then return v and "on" or "off" end
+		if r.kind == "lock" then return v and "locked" or "unlocked" end
+		return self:AiValue(r.def, v)
+	end
+	local name = plain(r.label) .. (r.key and (" (" .. r.key .. ")") or "")
+	if r.kind == "get" then return name .. ": " .. show(r.old) .. " (only shown)", T.muted end
+	if r.same then return name .. ": already " .. show(r.value), T.muted end
+	return name .. ": " .. show(r.old) .. " -> " .. show(r.value), T.text
+end
+
+-- Apply the rows of PlanApply: setting changes, on/off and lock. Returns changed, skipped (problem lines).
+function App:RunPlan(rows)
+	local changed, skipped = 0, 0
+	for _, r in ipairs(rows) do
+		if r.err then
+			skipped = skipped + 1
+		elseif r.kind ~= "get" and not r.same then
+			local ok, err = pcall(function()
+				if r.kind == "set" then
+					local undo = r.prepare and r.prepare()
+					local okSet, e = pcall(function()
+						r.def.set(r.value)
+						if r.def.after then r.def.after(r.value) end
+					end)
+					if type(undo) == "function" then undo() end
+					if not okSet then error(e, 0) end
+				elseif r.kind == "onoff" then
+					self.onOff.set(r.value)
+				elseif r.kind == "lock" then
+					self.movable.set(r.value)
+				end
+			end)
+			if ok then
+				changed = changed + 1
+			else
+				skipped = skipped + 1
+				r.err = tostring(err)
+				local handler = geterrorhandler and geterrorhandler()
+				if handler then handler(err) end
+			end
+		end
+	end
+	self:Refresh()
+	return changed, skipped
+end
+
+-- Plan and apply `text`; prints and returns "Changed 5 settings, 1 line skipped."
+function App:ApplyText(text)
+	local rows = self:PlanApply(text)
+	local changed, skipped = self:RunPlan(rows)
+	local msg = ("Changed %d setting%s"):format(changed, changed == 1 and "" or "s")
+	if skipped > 0 then msg = msg .. (", %d line%s skipped"):format(skipped, skipped == 1 and "" or "s") end
+	msg = msg .. "."
+	self:Print(msg)
+	return changed, skipped, rows, msg
+end
+
+-- A small movable window in the settings window's look. onShow(f) runs when it opens.
+local function Dialog(app, suffix, W, H, title, intro, onShow)
+	local T = app.T
+	local f = CreateFrame("Frame", app.frameName .. suffix, UIParent)
+	f.eluiTheme, f.app = T, app
+	f:SetSize(W, H)
+	f:SetFrameStrata("DIALOG")
+	f:SetToplevel(true)
+	f:SetClampedToScreen(true)
+	f:EnableMouse(true)
+	f:SetMovable(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", function(self) self:StartMoving() end)
+	f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+	f:Hide()
+	f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+	U.Solid(f, "BACKGROUND", rgba(T.bg)):SetAllPoints()
+	U.Border(f, 1, rgba(T.border))
+	local t = Text(f, T.fontHuge, T.text)
+	t:SetPoint("TOPLEFT", T.pad, -14)
+	t:SetPoint("RIGHT", f, "RIGHT", -44, 0)
+	t:SetWordWrap(false)
+	t:SetText(title)
+	local sub = Text(f, T.fontSmall + 1, T.muted)
+	sub:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -8)
+	sub:SetWidth(W - 2 * T.pad)
+	sub:SetText(intro)
+	f.title, f.intro = t, sub
+	f.top = 14 + 22 + 8 + math.ceil(sub:GetStringHeight() or 12) + 14
+	local close = CreateFrame("Button", nil, f)
+	close:SetSize(24, 24)
+	close:SetPoint("TOPRIGHT", -8, -8)
+	local x = Text(close, T.fontTitle, T.muted)
+	x:SetPoint("CENTER")
+	x:SetText("x")
+	close:SetScript("OnEnter", function() x:SetTextColor(rgba(T.text)) end)
+	close:SetScript("OnLeave", function() x:SetTextColor(rgba(T.muted)) end)
+	close:SetScript("OnClick", function() f:Hide() end)
+	f.close = close
+	f:SetScript("OnShow", function(self)
+		-- over the settings window it was opened from (same strata): above its deepest controls
+		local w = app.window
+		if w and w:IsShown() and w.GetFrameLevel then self:SetFrameLevel(math.min(9000, (w:GetFrameLevel() or 0) + 100)) end
+		self:Raise()
+		if onShow then onShow(self) end
+	end)
+	UI.CloseOnEscape(f)
+	return f
+end
+
+-- "/x ai": the text for the AI, selected for Ctrl+C.
+function App:ShowAiHelp()
+	local f = self.aiWindow
+	if not f then
+		local app, T = self, self.T
+		local W, H = 640, 540
+		f = Dialog(self, "AiHelpWindow", W, H, "Get help from AI to configure " .. self.name,
+			"1. Press Ctrl+C to copy the text below (it is already selected).\n"
+			.. "2. Paste it into Claude or another AI assistant and say what you want, e.g. \"bigger text, and put it at the bottom\".\n"
+			.. "3. Paste the AI's answer into the apply window (" .. self.slash .. " apply, or the button below).")
+		local area = UI.TextArea(f, W - 2 * T.pad, H - f.top - 62)
+		area:SetPoint("TOPLEFT", T.pad, -f.top)
+		local box = area.box
+		box:SetMaxLetters(0)
+		f.area, f.box = area, box
+		-- read-only: typing puts the text back (and selects it again)
+		box:SetScript("OnTextChanged", function(self, user)
+			if user and self:GetText() ~= f.text then self:SetText(f.text or ""); self:HighlightText() end
+		end)
+		box:HookScript("OnEditFocusGained", function(self) self:HighlightText() end)
+		box:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Hide() end)
+		box:SetScript("OnKeyUp", function(_, key)
+			if key == "C" and IsControlKeyDown() then
+				f.copied = true
+				f.status:SetText("Copied. Paste it into your AI, then its answer into " .. app.slash .. " apply.")
+				f.status:SetTextColor(rgba(T.ok))
+			end
+		end)
+		f.status = Text(f, T.font, T.accent)
+		f.status:SetPoint("BOTTOMLEFT", T.pad, 21)
+		f.status:SetPoint("RIGHT", f, "RIGHT", -(T.pad + 90 + 8 + 180 + 12), 0)
+		f.status:SetWordWrap(false)
+		local closeB = UI.Button(f, CLOSE or "Close", function() f:Hide() end, 90)
+		closeB:SetPoint("BOTTOMRIGHT", -T.pad, 14)
+		local applyB = UI.Button(f, "Open the apply window", function() app:ShowApply() end, 180)
+		applyB:SetPoint("RIGHT", closeB, "LEFT", -8, 0)
+		f.applyButton = applyB
+		f:HookScript("OnHide", function() box:ClearFocus() end)
+		self.aiWindow = f
+	end
+	f:Show()
+	f.text = self:AiText()
+	f.copied = nil
+	f.box:SetText(f.text)
+	f.box:SetCursorPosition(0)
+	f.box:SetFocus()
+	f.box:HighlightText()
+	f.status:SetText("Press Ctrl+C to copy.")
+	f.status:SetTextColor(rgba(self.T.accent))
+	return f
+end
+
+-- "/x apply [text]": paste the AI's answer, see each change, Apply. A chat line's " ; " become separate lines.
+function App:ShowApply(text)
+	local f = self.applyWindow
+	if not f then
+		local app, T = self, self.T
+		local W, H = 640, 580
+		f = Dialog(self, "AiApplyWindow", W, H, "Apply the AI's commands",
+			"Paste the AI's commands below (Ctrl+V), one per line, with or without " .. self.slash .. ". Blank lines and lines starting "
+			.. "with # are skipped. Only setting changes, on/off and lock/unlock run from here, and you see each change before Apply.")
+		local inputH = 160
+		local input = UI.TextArea(f, W - 2 * T.pad, inputH)
+		input:SetPoint("TOPLEFT", T.pad, -f.top)
+		local box = input.box
+		box:SetMaxLetters(0)
+		f.input, f.box = input, box
+		local hint = Text(input, T.font, T.muted)
+		hint:SetPoint("TOPLEFT", 8, -7)
+		hint:SetText("Paste the AI's commands here")
+		f.hint = hint
+		local function updateHint() hint:SetShown((box:GetText() or "") == "" and not box:HasFocus()) end
+		box:HookScript("OnEditFocusGained", updateHint)
+		box:HookScript("OnEditFocusLost", updateHint)
+		box:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Hide() end)
+
+		local label = Text(f, T.font, T.text)
+		label:SetPoint("TOPLEFT", input, "BOTTOMLEFT", 0, -12)
+		label:SetText("Preview")
+		local holder = CreateFrame("Frame", nil, f)
+		holder:SetPoint("TOPLEFT", input, "BOTTOMLEFT", 0, -34)
+		holder:SetSize(W - 2 * T.pad, H - f.top - inputH - 34 - 62)
+		U.Solid(holder, "BACKGROUND", rgba(T.surface)):SetAllPoints()
+		U.Border(holder, 1, rgba(T.border))
+		local scroll = CreateFrame("ScrollFrame", nil, holder)
+		scroll:SetPoint("TOPLEFT", 8, -6)
+		scroll:SetPoint("BOTTOMRIGHT", -(BAR_W + 8), 6)
+		local innerW = W - 2 * T.pad - BAR_W - 16
+		local child = CreateFrame("Frame", nil, scroll)
+		child:SetSize(innerW, 1)
+		scroll:SetScrollChild(child)
+		local fs = Text(child, T.fontSmall + 1, T.text)
+		fs:SetPoint("TOPLEFT")
+		fs:SetWidth(innerW)
+		fs:SetSpacing(3)
+		f.preview = fs
+		local track, update = AttachScrollBar(scroll, child, holder, 30)
+		track:SetPoint("TOPRIGHT", -3, -3)
+		track:SetPoint("BOTTOMRIGHT", -3, 3)
+
+		f.summary = Text(f, T.font, T.muted)
+		f.summary:SetPoint("BOTTOMLEFT", T.pad, 21)
+		f.summary:SetPoint("RIGHT", f, "RIGHT", -(T.pad + 120 + 8 + 90 + 12), 0)
+		f.summary:SetWordWrap(false)
+		local applyB = UI.Button(f, "Apply", function() f.Apply() end, 120, "accent")
+		applyB:SetPoint("BOTTOMRIGHT", -T.pad, 14)
+		local clearB = UI.Button(f, "Clear", function() box:SetText(""); f.Preview(); box:SetFocus() end, 90)
+		clearB:SetPoint("RIGHT", applyB, "LEFT", -8, 0)
+		f.applyButton, f.clearButton = applyB, clearB
+
+		-- result: the line to show instead of the count (after Apply)
+		function f.Preview(result)
+			updateHint()
+			local rows = app:PlanApply(box:GetText() or "")
+			local lines, changes, problems = {}, 0, 0
+			for _, r in ipairs(rows) do
+				local l, c = app:PreviewLine(r)
+				lines[#lines + 1] = "|cff" .. hex(c) .. U.Escape(l) .. "|r"
+				if r.err then problems = problems + 1 elseif r.kind ~= "get" and not r.same then changes = changes + 1 end
+			end
+			if #lines == 0 then lines[1] = "|cff" .. hex(T.muted) .. "Nothing to apply yet. Each change shows here before you apply it.|r" end
+			fs:SetText(table.concat(lines, "\n"))
+			child:SetHeight(math.max(1, math.ceil((fs:GetStringHeight() or 0) + 4)))
+			update()
+			applyB:SetUsable(changes > 0)
+			f.rows, f.changes, f.problems = rows, changes, problems
+			if result then
+				f.summary:SetText(result)
+				f.summary:SetTextColor(rgba(T.ok))
+			else
+				local msg = changes == 0 and "No changes yet." or ("%d change%s ready."):format(changes, changes == 1 and "" or "s")
+				if problems > 0 then msg = msg .. (" %d line%s will be skipped."):format(problems, problems == 1 and "" or "s") end
+				f.summary:SetText(msg)
+				f.summary:SetTextColor(rgba(problems > 0 and T.danger or T.muted))
+			end
+		end
+		function f.Apply()
+			local _, _, _, msg = app:ApplyText(box:GetText() or "")
+			f.Preview(msg)
+		end
+		-- the preview follows the text, once per frame at most
+		local pending
+		box:SetScript("OnTextChanged", function()
+			updateHint()
+			if pending then return end
+			pending = true
+			C_Timer.After(0, function()
+				pending = nil
+				if f:IsShown() then f.Preview() end
+			end)
+		end)
+		f:HookScript("OnHide", function() box:ClearFocus() end)
+		self.applyWindow = f
+	end
+	f:Show()
+	if text then f.box:SetText(table.concat(UI.SplitSets(text), "\n")) end
+	f.Preview()
+	f.box:SetFocus()
+	return f
 end
 
 ------------------------------------------------------------------------
