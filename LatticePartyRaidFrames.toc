@@ -2,7 +2,7 @@
 ## Title: Lattice
 ## Notes: Clean, easy-to-configure party & raid frames with click-casting, aura indicators and dispel highlights.
 ## Author: quikmn
-## Version: 0.7.0
+## Version: 0.7.1
 ## SavedVariables: LatticeDB
 ## IconTexture: Interface\AddOns\LatticePartyRaidFrames\Media\icon
 ## AddonCompartmentFunc: Lattice_OnCompartmentClick

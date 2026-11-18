@@ -1,6 +1,6 @@
 # Lattice Party & Raid Frames
 
-## Unreleased
+## v0.7.1 (2026-11-18)
 
 - Settings: an AI help button copies a description of every setting for an AI assistant, and `/lattice apply` runs the commands it gives back.
 
