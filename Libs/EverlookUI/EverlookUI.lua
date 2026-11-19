@@ -28,7 +28,7 @@
 --
 -- AI help (EverlookUI 5): an "AI help" button by the search box and "/x ai" copy a description of every setting
 -- for an AI assistant; "/x apply" takes its answer back (see "AI help" below and COMMANDS.md).
-local MAJOR, MINOR = "EverlookUI-1", 5
+local MAJOR, MINOR = "EverlookUI-1", 6
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
@@ -218,9 +218,37 @@ UI.Tooltip = Tooltip
 -- Escape closes `frame` through its own key handler. Not UISpecialFrames: Blizzard walks that list when
 -- Escape closes its own windows, and an entry written by an addon taints the walk (secret-value errors
 -- in Blizzard's OnHide). Other keys pass through to the game. SetPropagateKeyboardInput is blocked in
--- combat, so a window opened in combat leaves the keyboard alone and Escape then also reaches the game.
+-- combat, and an addon can't keep Escape from the game in combat: a window then takes no keys at all, so
+-- Escape opens only the Game Menu instead of closing the window too. When combat starts with one of these
+-- windows open it lets go of the keyboard (EnableKeyboard is allowed in combat; PLAYER_REGEN_DISABLED comes
+-- just before the lockdown) and takes it back when combat ends.
 -- Call after the frame's own OnShow script is set (this hooks it).
+local escFrames = setmetatable({}, { __mode = "k" })
+local combatWatch
+local function WatchCombat()
+	if combatWatch then return end
+	combatWatch = CreateFrame("Frame")
+	combatWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
+	combatWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+	combatWatch:SetScript("OnEvent", function(_, event)
+		local entering = event == "PLAYER_REGEN_DISABLED"
+		for f in pairs(escFrames) do
+			if f:IsShown() then
+				if entering then
+					f:EnableKeyboard(false)
+				else
+					f:SetPropagateKeyboardInput(true)
+					f:EnableKeyboard(true)
+				end
+			end
+		end
+	end)
+end
+UI.WatchCombatKeys = WatchCombat
+
 function UI.CloseOnEscape(frame)
+	escFrames[frame] = true
+	WatchCombat()
 	frame:HookScript("OnShow", function(self)
 		local ok = not InCombatLockdown()
 		if ok then self:SetPropagateKeyboardInput(true) end
