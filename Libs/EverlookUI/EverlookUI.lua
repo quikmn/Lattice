@@ -3241,6 +3241,7 @@ function App:CreateWindow()
 	f:Hide()
 	self.window = f
 	RestorePosition(self, f)
+	W = math.floor((f:GetWidth() or W) + 0.5) -- a size the player gave it last time
 	WindowChrome(f, T)
 
 	-- the page area (its top is set below, under the header); the search results live in it too
