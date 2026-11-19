@@ -1,6 +1,6 @@
--- EverlookUI: the settings window look shared by quikmn's addons (the Lattice style).
+-- EverlookUI: the settings window look shared by quikmn's addons.
 --
--- Single source of truth: D:\Dev\EverlookUI\EverlookUI.lua. Each addon carries a copy in
+-- Single source of truth: D:\Dev\EverlookUI\EverlookUI.lua (+ Media\). Each addon carries a copy in
 -- Libs\EverlookUI\ (sync.py writes it; release-addon.py and install-addons.ps1 keep it current).
 -- Versioned with LibStub: when several addons carry it, the newest copy is the one every addon uses.
 -- Bump MINOR whenever this file changes.
@@ -9,43 +9,54 @@
 --   local app = UI:NewApp({ name = "Whack", addon = ADDON, slash = "/whack", tagline = "...", accent = {r, g, b} })
 --   app:Setting({ key = "fontsize", type = "number", label = "Font size", min = 8, max = 48, get = ..., set = ... })
 --   app:Command("test", "test", "show fake numbers", function(rest) ... end)
---   app:Section("general", "General", function(stack, app) app:Widget(stack, "fontsize") end)
+--   app:Section("general", "General", function(stack, app) app:Widget(stack, "fontsize") end, { icon = "gear", desc = "..." })
 --   app:Movable({ what = "the text areas", get = ..., set = ... })   -- /whack lock, unlock
 --   app:Reset("outgoing", "the outgoing area", function() ... end)   -- /whack reset outgoing (asks first)
 --   app:StatusLines(function() return "seen 12 hits" end)            -- /whack status
 --   app:RegisterSlash("WHACK")   -- or SlashCmdList.WHACK = function(msg) app:HandleSlash(msg) end
 -- Chat commands follow one pattern in every addon: see "Chat commands" below and COMMANDS.md.
 --
+-- The window (EverlookUI 7): a left sidebar (the addon's icon and name, the search box, one row with an icon per
+-- page, tool links such as "Report a bug", and "v1.2.3 · /cmd"), a page header (title, one-line description and an
+-- optional live preview, app:Preview), the page as cards of rows under small gold headings (label and description
+-- left, control right), and a footer bar (an optional profile picker, app:Profiles, and Undo for this session's
+-- changes). One-page addons get the same look without the sidebar. The window moves, resizes and remembers both.
+--
 -- Widgets: Header, Note, Toggle, Slider, Dropdown, Color, Input, CopyBox, Stat, List, Button, ConfirmButton,
 -- ButtonRow, TextArea, ScrollPage. Bound widgets take { label, desc, get, set, disabled, after } and have :Refresh().
 -- The mouse wheel scrolls the page: sliders and dropdowns never take it. The page scroll bar is 12 px and draggable.
 --
--- Search: every window has a search box at the top centre (Ctrl+F; Escape clears it, then closes the window).
+-- Search: every window has a search box (Ctrl+F; Escape clears it, then closes the window).
 -- It finds settings (app:Widget), plain toggles, sliders, dropdowns, colour swatches and button rows on any
 -- page, by label, description, page and heading, a dropdown's value and choices, the chat-command name and
 -- optional keywords: app:Setting({ ..., keywords = { "opacity", "alpha" } }) or a widget's/button's opt.keywords.
 -- opt.search = false keeps a widget out. Results are the real controls, borrowed from their page while listed.
 --
--- AI help (EverlookUI 5): an "AI help" button by the search box and "/x ai" copy a description of every setting
+-- AI help (EverlookUI 5): an "AI help" link in the window and "/x ai" copy a description of every setting
 -- for an AI assistant; "/x apply" takes its answer back (see "AI help" below and COMMANDS.md).
-local MAJOR, MINOR = "EverlookUI-1", 6
+local LIB_ADDON = ... -- the folder of the addon whose copy this is (its Media\ sits next to this file)
+local MAJOR, MINOR = "EverlookUI-1", 7
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
+UI.media = type(LIB_ADDON) == "string" and ("Interface\\AddOns\\" .. LIB_ADDON .. "\\Libs\\EverlookUI\\Media\\") or nil
 
 ------------------------------------------------------------------------
--- Theme
+-- Theme: dark slate, one accent colour per addon, gold section headings.
 ------------------------------------------------------------------------
 UI.Theme = {
-	bg        = { 0.071, 0.078, 0.094, 0.97 }, -- window
-	sidebar   = { 0.055, 0.060, 0.074, 1 },
-	surface   = { 0.105, 0.114, 0.137, 1 },   -- cards / inputs
-	surfaceHi = { 0.137, 0.149, 0.180, 1 },   -- hover
-	border    = { 0.180, 0.196, 0.235, 1 },
-	text      = { 0.902, 0.910, 0.933, 1 },
+	bg        = { 0.063, 0.069, 0.082, 0.98 }, -- window
+	sidebar   = { 0.047, 0.052, 0.063, 1 },
+	card      = { 0.090, 0.098, 0.118, 1 },   -- the rounded cards rows sit in
+	surface   = { 0.133, 0.145, 0.173, 1 },   -- inputs, buttons, list rows
+	surfaceHi = { 0.169, 0.182, 0.216, 1 },   -- hover
+	border    = { 0.192, 0.208, 0.247, 1 },
+	divider   = { 0.145, 0.157, 0.188, 1 },   -- between rows in a card
+	text      = { 0.910, 0.918, 0.937, 1 },
 	muted     = { 0.553, 0.580, 0.639, 1 },
+	gold      = { 0.961, 0.776, 0.341, 1 },   -- section headings
 	accent    = { 0.353, 0.663, 1.000, 1 },   -- #5aa9ff (Lattice blue)
-	accentDim = { 0.353, 0.663, 1.000, 0.18 },
+	accentDim = { 0.353, 0.663, 1.000, 0.16 },
 	danger    = { 0.937, 0.365, 0.365, 1 },
 	ok        = { 0.384, 0.812, 0.533, 1 },
 	onAccent  = { 0.05, 0.07, 0.1, 1 },        -- text and knobs drawn on the accent colour
@@ -57,6 +68,7 @@ UI.Theme = {
 
 	pad = 16,
 	rowGap = 10,
+	radius = 6,  -- cards; buttons and inputs use 4, the window 8
 }
 
 -- A theme with another accent colour ({ r, g, b }); everything else from UI.Theme.
@@ -65,7 +77,7 @@ function UI.MakeTheme(accent)
 	for k, v in pairs(UI.Theme) do T[k] = v end
 	if type(accent) == "table" and accent[1] then
 		T.accent = { accent[1], accent[2], accent[3], 1 }
-		T.accentDim = { accent[1], accent[2], accent[3], 0.18 }
+		T.accentDim = { accent[1], accent[2], accent[3], 0.16 }
 	end
 	return T
 end
@@ -174,6 +186,161 @@ function U.Border(parent, size, r, g, b, a, layer)
 	return border
 end
 
+-- Rounded box from our own disc texture (Media\Round.tga): four quarter-disc corners and three bands. Anchor it
+-- like a texture (SetPoint, SetAllPoints, SetSize); colour it with SetVertexColor. corners = { tl, tr, bl, br }
+-- (false keeps that corner square; nil rounds all four). Without the media file the corners are square.
+local Round = {}
+Round.__index = Round
+local ROUND_CORNERS = {
+	tl = { "TOPLEFT", 0, 0.5, 0, 0.5 }, tr = { "TOPRIGHT", 0.5, 1, 0, 0.5 },
+	bl = { "BOTTOMLEFT", 0, 0.5, 0.5, 1 }, br = { "BOTTOMRIGHT", 0.5, 1, 0.5, 1 },
+}
+function U.Round(parent, radius, layer, sublevel, corners)
+	local o = setmetatable({ parts = {}, r = radius or 6, shown = true }, Round)
+	layer, sublevel = layer or "BACKGROUND", sublevel or 0
+	local box = parent:CreateTexture(nil, layer, nil, sublevel) -- the anchor the parts hang from; never drawn
+	box:SetTexture(U.WHITE)
+	box:SetAlpha(0)
+	o.box = box
+	local r = o.r
+	local function part(tex)
+		local t = parent:CreateTexture(nil, layer, nil, sublevel)
+		t:SetTexture(tex or U.WHITE)
+		o.parts[#o.parts + 1] = t
+		return t
+	end
+	local mid = part()
+	mid:SetPoint("TOPLEFT", box, "TOPLEFT", r, 0)
+	mid:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -r, 0)
+	local left = part()
+	left:SetPoint("TOPLEFT", box, "TOPLEFT", 0, -r)
+	left:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", 0, r)
+	left:SetWidth(r)
+	local right = part()
+	right:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, -r)
+	right:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", 0, r)
+	right:SetWidth(r)
+	local disc = UI.media and (UI.media .. "Round") or nil
+	for _, key in ipairs({ "tl", "tr", "bl", "br" }) do
+		local c = ROUND_CORNERS[key]
+		local rounded = disc and (not corners or corners[key])
+		local t = part(rounded and disc or U.WHITE)
+		t:SetSize(r, r)
+		t:SetPoint(c[1], box, c[1], 0, 0)
+		if rounded then t:SetTexCoord(c[2], c[3], c[4], c[5]) end
+	end
+	return o
+end
+function Round:SetPoint(...) self.box:SetPoint(...) end
+function Round:SetAllPoints(...) self.box:SetAllPoints(...) end
+function Round:ClearAllPoints() self.box:ClearAllPoints() end
+function Round:SetSize(w, h) self.box:SetSize(w, h) end
+function Round:SetWidth(w) self.box:SetWidth(w) end
+function Round:SetHeight(h) self.box:SetHeight(h) end
+function Round:GetWidth() return self.box:GetWidth() end
+function Round:GetHeight() return self.box:GetHeight() end
+function Round:SetVertexColor(r, g, b, a)
+	self.color = { r, g, b, a or 1 }
+	for _, t in ipairs(self.parts) do t:SetVertexColor(r, g, b, a or 1) end
+end
+Round.SetColor = Round.SetVertexColor
+function Round:SetAlpha(a) for _, t in ipairs(self.parts) do t:SetAlpha(a) end end
+function Round:SetShown(on)
+	self.shown = on and true or false
+	for _, t in ipairs(self.parts) do t:SetShown(self.shown) end
+end
+function Round:Show() self:SetShown(true) end
+function Round:Hide() self:SetShown(false) end
+function Round:IsShown() return self.shown end
+UI.Round = Round
+
+-- A rounded box filled with `fill` inside a 1 px `border` of the same shape (a second box 1 px larger behind it),
+-- covering `holder`. Returns fill, edge (both Round objects).
+function U.RoundBox(holder, radius, fill, border, layer, sublevel)
+	sublevel = sublevel or 0
+	local edge = U.Round(holder, radius, layer, sublevel)
+	edge:SetAllPoints(holder)
+	edge:SetVertexColor(rgba(border))
+	local inner = U.Round(holder, math.max(1, radius - 1), layer, sublevel + 1)
+	inner:SetPoint("TOPLEFT", holder, "TOPLEFT", 1, -1)
+	inner:SetPoint("BOTTOMRIGHT", holder, "BOTTOMRIGHT", -1, 1)
+	inner:SetVertexColor(rgba(fill))
+	return inner, edge
+end
+
+-- Line icons (Media\Icons.tga, our own, drawn by tools/make_media.py): 8 x 8 cells, in this order.
+-- UI.SetIcon(texture, icon): icon is one of these names, or any texture path or file ID (a game icon).
+local ICON_NAMES = {
+	"gear", "eye", "text", "palette", "speaker", "bell", "tooltip", "bars",
+	"coins", "user", "info", "sliders", "wrench", "database", "chat", "keyboard",
+	"paw", "note", "funnel", "puzzle", "sword", "map", "search", "scroll",
+	"bug", "shield", "grid", "share", "clock", "star", "home", "undo",
+	"page", "book", "bag", "hammer", "flask", "sparkle", "link", "heart",
+	"flag", "lock", "mouse", "layers", "target", "list", "check", "close",
+	"chevron", "external", "plus", "minus", "refresh", "download", "ai", "dot",
+	"frames", "cursor", "music", "globe", "trash",
+}
+local ICON_INDEX = {}
+for i, n in ipairs(ICON_NAMES) do ICON_INDEX[n] = i end
+UI.IconNames = ICON_NAMES
+
+function UI.IsIconName(icon) return type(icon) == "string" and ICON_INDEX[icon] ~= nil end
+
+-- Show `icon` on `tex`; false when there is nothing to show (the texture is hidden).
+function UI.SetIcon(tex, icon)
+	local i = type(icon) == "string" and ICON_INDEX[icon]
+	if i then
+		if not UI.media then tex:Hide() return false end
+		local col, row = (i - 1) % 8, math.floor((i - 1) / 8)
+		tex:SetTexture(UI.media .. "Icons")
+		tex:SetTexCoord(col / 8, (col + 1) / 8, row / 8, (row + 1) / 8)
+		tex:Show()
+		return true
+	end
+	if icon == nil or icon == "" then tex:Hide() return false end
+	tex:SetTexture(icon)
+	-- game icons carry a dark rim: trim it
+	if type(icon) == "number" or tostring(icon):lower():find("interface[/\\]icons[/\\]") then tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	else tex:SetTexCoord(0, 1, 0, 1) end
+	tex:Show()
+	return true
+end
+
+-- An icon for a page by its title, for addons that don't name one: the first word that has an icon wins.
+UI.PageIcons = {
+	general = "gear", options = "sliders", settings = "sliders", setting = "sliders", config = "sliders", advanced = "sliders",
+	display = "eye", appearance = "eye", look = "eye", style = "eye", visibility = "eye", show = "eye",
+	layout = "grid", frames = "frames", unit = "frames", window = "frames",
+	text = "text", font = "text", fonts = "text", numbers = "text", outgoing = "text", incoming = "text",
+	colors = "palette", colours = "palette", color = "palette", colour = "palette", theme = "palette",
+	sound = "speaker", sounds = "speaker", audio = "speaker", music = "music",
+	alerts = "bell", alert = "bell", notifications = "bell", notification = "bell", warnings = "bell", reminders = "bell",
+	tooltip = "tooltip", tooltips = "tooltip",
+	bars = "bars", bar = "bars", stats = "bars", statistics = "bars", overview = "bars", progress = "bars", status = "bars",
+	auctions = "coins", auction = "coins", selling = "coins", buying = "coins", prices = "coins", price = "coins", gold = "coins", value = "coins",
+	profiles = "user", profile = "user", character = "user", account = "user", mine = "user",
+	about = "info", help = "info", info = "info", privacy = "shield", records = "database", data = "database", database = "database",
+	tools = "wrench", built = "puzzle", modules = "puzzle", plugins = "puzzle", plugin = "puzzle", addons = "puzzle", extended = "layers",
+	chat = "chat", messages = "chat", channels = "chat",
+	macros = "keyboard", keybinds = "keyboard", bindings = "keyboard", keys = "keyboard", ring = "target", edit = "note",
+	templates = "layers", backups = "download", backup = "download", import = "download", export = "share", share = "share",
+	pets = "paw", pet = "paw", beast = "paw", beasts = "paw", bestiary = "book", hunter = "paw",
+	notes = "note", note = "note", recent = "clock", history = "clock", log = "clock", timers = "clock", cooldowns = "clock",
+	filters = "funnel", filter = "funnel", search = "search", scan = "search", scanning = "search",
+	combat = "sword", auras = "sparkle", buffs = "sparkle", debuffs = "sparkle", spells = "sparkle",
+	minimap = "map", map = "map", maps = "map", zones = "map", location = "map", quests = "scroll", quest = "scroll",
+	professions = "hammer", crafting = "hammer", recipes = "hammer", bags = "bag", inventory = "bag", items = "bag", loot = "bag",
+	debug = "bug", build = "wrench", developer = "wrench", links = "link", click = "mouse", mouse = "mouse", hover = "cursor",
+	casting = "mouse", targets = "target", target = "target", favourites = "star", favorites = "star",
+}
+function UI.PageIcon(title)
+	for word in tostring(title or ""):lower():gmatch("[%a]+") do
+		local icon = UI.PageIcons[word]
+		if icon then return icon end
+	end
+	return "page"
+end
+
 -- The theme a widget should use: the stack's, or the nearest parent window's.
 local function ThemeOf(x)
 	if type(x) == "table" then
@@ -214,6 +381,50 @@ local function Tooltip(frame, title, body)
 	frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
 end
 UI.Tooltip = Tooltip
+
+-- The window look: a rounded slate box with a 1 px rim and a thin accent line along the top.
+local function WindowChrome(f, T)
+	f.bgFill, f.bgEdge = U.RoundBox(f, 8, T.bg, T.border)
+	local line = U.Solid(f, "ARTWORK", rgba(T.accent))
+	line:SetHeight(2)
+	line:SetPoint("TOPLEFT", 8, -1)
+	line:SetPoint("TOPRIGHT", -8, -1)
+	f.accentLine = line
+end
+UI.WindowChrome = WindowChrome
+
+-- The close button in a window's top right corner (an X icon, lit on hover).
+local function CloseButton(f, T)
+	local close = CreateFrame("Button", nil, f)
+	close:SetSize(24, 24)
+	close:SetPoint("TOPRIGHT", -10, -10)
+	local hl = U.Round(close, 4, "BACKGROUND")
+	hl:SetAllPoints(close)
+	hl:SetVertexColor(rgba(T.surfaceHi))
+	hl:Hide()
+	local icon = close:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(10, 10)
+	icon:SetPoint("CENTER")
+	local x
+	if UI.SetIcon(icon, "close") then
+		icon:SetVertexColor(rgba(T.muted))
+	else
+		x = Text(close, T.fontTitle, T.muted)
+		x:SetPoint("CENTER")
+		x:SetText("x")
+	end
+	close:SetScript("OnEnter", function()
+		hl:Show()
+		if x then x:SetTextColor(rgba(T.text)) else icon:SetVertexColor(rgba(T.text)) end
+	end)
+	close:SetScript("OnLeave", function()
+		hl:Hide()
+		if x then x:SetTextColor(rgba(T.muted)) else icon:SetVertexColor(rgba(T.muted)) end
+	end)
+	close:SetScript("OnClick", function() f:Hide() end)
+	return close
+end
+UI.CloseButton = CloseButton
 
 -- Escape closes `frame` through its own key handler. Not UISpecialFrames: Blizzard walks that list when
 -- Escape closes its own windows, and an entry written by an addon taints the walk (secret-value errors
@@ -270,53 +481,155 @@ end
 ------------------------------------------------------------------------
 -- Stack: the vertical layout of a page. Rows can change height later (lists, notes) and the
 -- rows under them move with :Relayout().
+-- A card stack (the app's pages: UI.Stack(parent, width, T, { cards = true })) puts what comes between two headings
+-- in one rounded card: setting rows (label left, control right) with a thin line between them, and anything else
+-- (notes, lists, button rows, an addon's own frames) with some room around it. stack.width is then the width
+-- inside a card, the width every piece should use; stack.outer is the card's.
 ------------------------------------------------------------------------
 local Stack = {}
 Stack.__index = Stack
+local CARD_PAD = 12 -- inside a card, left and right
+local CARD_GAP = 14 -- after a card
+UI.CARD_PAD = CARD_PAD
 
-function UI.Stack(parent, width, T)
-	return setmetatable({ parent = parent, width = width, y = 0, widgets = {}, entries = {}, T = T or ThemeOf(parent), isStack = true }, Stack)
+function UI.Stack(parent, width, T, opts)
+	local cards = type(opts) == "table" and opts.cards and true or false
+	local st = setmetatable({ parent = parent, width = width, outer = width, y = 0, widgets = {}, entries = {},
+		T = T or ThemeOf(parent), isStack = true, cards = cards, flow = { cards = {}, divs = {} } }, Stack)
+	if cards then
+		st.width = width - 2 * CARD_PAD
+		st.cardPool, st.divPool = {}, {}
+	end
+	return st
 end
 
-function Stack:Place(e)
-	e.y = self.y
-	if e.borrowed then -- listed in search results right now: keep its room, leave it where it is
+-- Put entry `e` at x, the current y (a control listed in search results right now keeps its room but stays put).
+function Stack:PlaceAt(e, x)
+	e.y, e.x = self.y, x
+	if e.borrowed then return end
+	local f = e.frame
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", self.parent, "TOPLEFT", x, -self.y)
+	f:SetWidth(e.kind == "heading" and (self.outer - x) or (self.width - e.indent))
+	f:SetHeight(e.height)
+end
+
+-- Lay out one more entry.
+function Stack:Flow(e)
+	local F = self.flow
+	if e.space then self.y = self.y + e.space return end
+	if not self.cards then
+		self:PlaceAt(e, e.indent)
 		self.y = self.y + e.height + e.gap
 		return
 	end
-	local f = e.frame
-	f:ClearAllPoints()
-	f:SetPoint("TOPLEFT", self.parent, "TOPLEFT", e.indent, -self.y)
-	f:SetWidth(self.width - e.indent)
-	f:SetHeight(e.height)
-	self.y = self.y + e.height + e.gap
+	if e.kind == "heading" then
+		self:CloseCard()
+		self:PlaceAt(e, 2)
+		self.y = self.y + e.height + 6
+		return
+	end
+	if e.height <= 0 then -- folded away (or a helper frame with no room): no card for it
+		self:PlaceAt(e, CARD_PAD + e.indent)
+		return
+	end
+	if not F.card then
+		F.card = { top = self.y }
+		F.cards[#F.cards + 1] = F.card
+		F.prev, F.lastGap = nil, 0
+		self.y = self.y + 4
+	end
+	if e.row then
+		if F.prev == "row" then F.divs[#F.divs + 1] = self.y end
+		self:PlaceAt(e, CARD_PAD + e.indent)
+		self.y = self.y + e.height
+		F.prev, F.lastGap = "row", 0
+	else
+		if F.prev == "row" then self.y = self.y + 8 elseif F.prev == nil then self.y = self.y + 6 end
+		self:PlaceAt(e, CARD_PAD + e.indent)
+		self.y = self.y + e.height + e.gap
+		F.prev, F.lastGap = "block", e.gap
+	end
+	F.card.bottom = self.y - F.lastGap + (F.prev == "block" and 10 or 4)
+end
+Stack.Place = Stack.Flow -- the EverlookUI 6 name
+
+function Stack:CloseCard()
+	local F = self.flow
+	if not F.card then return end
+	self.y = F.card.bottom + CARD_GAP
+	F.card, F.prev = nil, nil
 end
 
+-- Where the content ends (the open card's bottom, else y).
+function Stack:Bottom()
+	local c = self.flow.card
+	return c and c.bottom or self.y
+end
+
+-- The card backgrounds and the lines between rows, from the last layout.
+function Stack:DrawCards()
+	if not self.cards then return end
+	local F, T = self.flow, self.T
+	for i, c in ipairs(F.cards) do
+		local r = self.cardPool[i]
+		if not r then
+			r = U.Round(self.parent, T.radius, "BACKGROUND", -6)
+			r:SetVertexColor(rgba(T.card))
+			self.cardPool[i] = r
+		end
+		r:ClearAllPoints()
+		r:SetPoint("TOPLEFT", self.parent, "TOPLEFT", 0, -c.top)
+		r:SetSize(self.outer, math.max(2 * T.radius, (c.bottom or c.top) - c.top))
+		r:Show()
+	end
+	for i = #F.cards + 1, #self.cardPool do self.cardPool[i]:Hide() end
+	for i, y in ipairs(F.divs) do
+		local t = self.divPool[i]
+		if not t then
+			t = U.Solid(self.parent, "BACKGROUND", T.divider[1], T.divider[2], T.divider[3], 1, -5)
+			self.divPool[i] = t
+		end
+		t:ClearAllPoints()
+		t:SetPoint("TOPLEFT", self.parent, "TOPLEFT", CARD_PAD, -y)
+		t:SetSize(self.outer - 2 * CARD_PAD, 1)
+		t:Show()
+	end
+	for i = #F.divs + 1, #self.divPool do self.divPool[i]:Hide() end
+end
+
+function Stack:Finish()
+	self:DrawCards()
+	self.parent:SetHeight(self:Bottom() + self.T.pad)
+end
+
+-- frame.eluiRow: a setting row (label left, control right); frame.eluiKind: "heading" or "pagehead".
 function Stack:Add(frame, height, gap, indent)
 	frame:SetParent(self.parent)
-	local e = { frame = frame, height = height, gap = gap or self.T.rowGap, indent = indent or 0 }
+	local e = { frame = frame, height = height, gap = gap or self.T.rowGap, indent = indent or 0,
+		row = rawget(frame, "eluiRow") and true or nil, kind = rawget(frame, "eluiKind") }
 	self.entries[#self.entries + 1] = e
 	frame.stackEntry = e
-	self:Place(e)
+	self:Flow(e)
+	self:Finish()
 	if frame.Refresh then self.widgets[#self.widgets + 1] = frame end
-	self.parent:SetHeight(self.y + self.T.pad)
 	if self.app and frame.searchInfo then self.app:IndexWidget(self, frame) end
 	return frame
 end
 
 function Stack:Space(px)
 	px = px or self.T.pad
-	self.entries[#self.entries + 1] = { space = px }
-	self.y = self.y + px
-	self.parent:SetHeight(self.y + self.T.pad)
+	local e = { space = px }
+	self.entries[#self.entries + 1] = e
+	self:Flow(e)
+	self:Finish()
 end
 
 function Stack:Relayout()
 	self.y = 0
-	for _, e in ipairs(self.entries) do
-		if e.space then self.y = self.y + e.space else self:Place(e) end
-	end
-	self.parent:SetHeight(self.y + self.T.pad)
+	self.flow = { cards = {}, divs = {} }
+	for _, e in ipairs(self.entries) do self:Flow(e) end
+	self:Finish()
 end
 
 -- Give a row a new height and move the rows below it.
@@ -324,6 +637,20 @@ function Stack:SetHeightOf(frame, h)
 	local e = frame.stackEntry
 	if not e or e.height == h then return end
 	e.height = h
+	self:Relayout()
+end
+
+-- A new width (the window was resized): rows that wrap text measure again.
+function Stack:SetWidth(width)
+	if width == self.outer then return end
+	self.outer = width
+	self.width = self.cards and (width - 2 * CARD_PAD) or width
+	for _, e in ipairs(self.entries) do
+		local f = e.frame
+		if f and e.height > 0 and rawget(f, "eluiMeasure") then
+			e.height = f.eluiMeasure(f, (e.kind == "heading" and self.outer or self.width) - e.indent)
+		end
+	end
 	self:Relayout()
 end
 
@@ -341,15 +668,121 @@ local function SearchInfo(opt, extra)
 	return info
 end
 
+-- A control changed a value: the app remembers it for Undo (EverlookUI 7). id names the control.
+local function Changed(stack, opt, before, id)
+	local app = stack and stack.app
+	if app and app.RecordChange then
+		app:RecordChange({ id = id or opt, label = opt.label, get = opt.get, set = opt.set, after = opt.after, before = before })
+	end
+end
+UI.Changed = Changed
+
+------------------------------------------------------------------------
+-- Setting rows: the label (and a muted line of description) on the left, the control on the right.
+------------------------------------------------------------------------
+local ROW_PAD = 9
+local ROW_MIN = 36
+
+-- The description shown under a label: all of a short one, else its first sentence (the tooltip has the rest).
+local function ShortDesc(desc)
+	if type(desc) ~= "string" or desc == "" then return nil, false end
+	if #desc <= 120 then return desc, false end
+	local first = desc:match("^(.-[%.!?])%s")
+	if first and #first <= 160 then return first, true end
+	return desc:sub(1, 117) .. "...", true
+end
+UI.ShortDesc = ShortDesc
+
+-- Makes `f` a row: f.label (and f.desc) on the left of a control `controlW` wide anchored at RIGHT. Returns true when
+-- the description was shortened (then the row keeps a tooltip with all of it).
+local function RowLabel(f, T, opt, controlW)
+	local label = Text(f, T.font, T.text)
+	label:SetText(opt.label or "")
+	local text, cut = ShortDesc(opt.desc)
+	local desc
+	if text then
+		desc = Text(f, T.fontSmall + 1, T.muted)
+		desc:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -3)
+		desc:SetText(text)
+	end
+	f.label, f.desc = label, desc
+	f.eluiRow = true
+	f.eluiControlW = controlW
+	f.eluiMeasure = function(self, width)
+		local w = math.max(80, width - (self.eluiControlW or 0) - 16)
+		label:SetWidth(w)
+		local th = math.ceil(label:GetStringHeight() or 12)
+		if desc then
+			desc:SetWidth(w)
+			th = th + 3 + math.ceil(desc:GetStringHeight() or 10)
+		end
+		local h = math.max(ROW_MIN, th + 2 * ROW_PAD)
+		label:ClearAllPoints()
+		label:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -math.floor((h - th) / 2))
+		return h
+	end
+	return cut
+end
+
 ------------------------------------------------------------------------
 -- Static text
 ------------------------------------------------------------------------
+-- On a card page: a small gold heading that starts a new card. The page's first heading, when it is named like the
+-- page ("Options" on the Options page), is the page title at the top of the window instead (its `sub` becomes the
+-- page's description). Elsewhere: a title with a line under it.
 function UI.Header(stack, text, sub)
 	local T = stack.T
 	local f = CreateFrame("Frame")
+	local app = stack.app
+	local sec = app and stack.section and app.sections[stack.section]
+	stack.searchHeader = text -- search results show "Page » Heading" for the rows under it
+	local own = stack.cards and sec and #stack.entries == 0 and app.window
+		and (U.Trim(text):lower() == U.Trim(sec.title):lower() or (not app.window.navButtons and U.Trim(text):lower() == U.Trim(app.name):lower()))
+	if own and not app.window.navButtons then
+		-- a one-page window already shows the addon's name at the top: the heading goes, its line stays as a note
+		f.eluiKind = "pagehead"
+		f.title = Text(f, T.fontHuge, T.text)
+		f.title:SetText(text)
+		f.title:Hide()
+		stack:Add(f, 0, 0)
+		if sub then UI.Note(stack, sub) end
+		return f
+	end
+	if own then
+		f.eluiKind = "pagehead"
+		f.title = Text(f, T.fontHuge, T.text)
+		f.title:SetText(text)
+		f.title:Hide()
+		if sub and not sec.desc then sec.desc = sub end
+		if app.current == sec.id and app.UpdatePageHeader then app:UpdatePageHeader() end
+		return stack:Add(f, 0, 0)
+	end
+	if stack.cards then
+		f.eluiKind = "heading"
+		local title = Text(f, T.fontSmall + 1, T.gold)
+		title:SetPoint("TOPLEFT")
+		title:SetWordWrap(false)
+		title:SetText(text)
+		f.title = title
+		local s
+		if sub then
+			s = Text(f, T.fontSmall + 1, T.muted)
+			s:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+			s:SetText(sub)
+			f.sub = s
+		end
+		f.eluiMeasure = function(_, width)
+			title:SetWidth(width - 4)
+			if not s then return 16 end
+			s:SetWidth(width - 4)
+			return 16 + 4 + math.max(10, math.ceil(s:GetStringHeight() or 10))
+		end
+		return stack:Add(f, f.eluiMeasure(f, stack.outer - 2), 6)
+	end
 	local title = Text(f, T.fontTitle, T.text)
 	title:SetPoint("TOPLEFT")
 	title:SetText(text)
+	f.title = title
 	local line = U.Solid(f, "ARTWORK", rgba(T.border))
 	line:SetHeight(1)
 	line:SetPoint("BOTTOMLEFT")
@@ -363,7 +796,6 @@ function UI.Header(stack, text, sub)
 		h = 34 + math.max(10, s:GetStringHeight())
 	end
 	stack:Space(stack.y > 0 and 8 or 0)
-	stack.searchHeader = text -- search results show "Page » Heading" for the rows under it
 	return stack:Add(f, h, 12)
 end
 
@@ -380,13 +812,15 @@ function UI.Note(stack, text, color)
 		return math.max(14, fs:GetStringHeight() + 2)
 	end
 	local h = fill()
+	f.eluiMeasure = function(_, width) fs:SetWidth(width) return math.max(14, fs:GetStringHeight() + 2) end
 	if type(text) == "function" then
 		function f:Refresh() stack:SetHeightOf(f, fill()) end
 	end
 	return stack:Add(f, h)
 end
 
--- "Label      value" line; value is a function, read again on Refresh.
+-- "Label      value" line; value is a function, read again on Refresh. On a card page it is a row with the
+-- value on the right.
 function UI.Stat(stack, label, value, labelWidth)
 	local T = stack.T
 	local f = CreateFrame("Frame")
@@ -395,13 +829,20 @@ function UI.Stat(stack, label, value, labelWidth)
 	l:SetWidth(labelWidth or 190)
 	l:SetWordWrap(false)
 	l:SetText(label)
+	f.label = l
 	local v = Text(f, T.font, T.text)
 	v:SetPoint("LEFT", labelWidth or 190, 0)
 	v:SetPoint("RIGHT")
 	v:SetWordWrap(false)
 	f.value = v
 	function f:Refresh() v:SetText(tostring(value() or "")) end
-	stack:Add(f, 16, 6)
+	if stack.cards then
+		f.eluiRow = true
+		v:SetJustifyH("RIGHT")
+		stack:Add(f, 30, 0)
+	else
+		stack:Add(f, 16, 6)
+	end
 	f:Refresh()
 	return f
 end
@@ -409,16 +850,14 @@ end
 ------------------------------------------------------------------------
 -- Buttons
 ------------------------------------------------------------------------
--- style: nil, "accent" or "danger".
+-- style: nil, "accent" (the screen's one primary button) or "danger".
 function UI.Button(parent, label, onClick, width, style)
 	local T = ThemeOf(parent)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(width or 120, 26)
 	local accent, danger = style == "accent", style == "danger"
-	b.bg = U.Solid(b, "BACKGROUND", rgba(accent and T.accent or T.surface))
-	b.bg:SetAllPoints()
-	if accent then b.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.85) end
-	b.border = U.Border(b, 1, rgba(danger and T.danger or T.border))
+	b.bg, b.border = U.RoundBox(b, 4, accent and T.accent or T.surface, (accent and T.accent) or (danger and T.danger) or T.border)
+	if accent then b.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.88) end
 	b.label = Text(b, T.font, accent and T.onAccent or (danger and T.danger or T.text))
 	b.label:SetPoint("CENTER")
 	b.label:SetJustifyH("CENTER")
@@ -428,7 +867,7 @@ function UI.Button(parent, label, onClick, width, style)
 		if accent then self.bg:SetVertexColor(rgba(T.accent)) else self.bg:SetVertexColor(rgba(T.surfaceHi)) end
 	end)
 	b:SetScript("OnLeave", function(self)
-		if accent then self.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.85) else self.bg:SetVertexColor(rgba(T.surface)) end
+		if accent then self.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.88) else self.bg:SetVertexColor(rgba(T.surface)) end
 	end)
 	b:SetScript("OnClick", function(self, ...) if onClick then onClick(self, ...) end end)
 	function b:SetText(t) self.label:SetText(t) end
@@ -502,28 +941,29 @@ function UI.ButtonRow(stack, buttons)
 end
 
 ------------------------------------------------------------------------
--- Switch (the toggle's track and knob, also used in list rows)
+-- Switch (the toggle's pill and knob, also used in list rows)
 ------------------------------------------------------------------------
 local function Switch(parent, T)
 	local track = CreateFrame("Frame", nil, parent)
-	track:SetSize(34, 18)
-	track.bg = U.Solid(track, "BACKGROUND", rgba(T.surface))
-	track.bg:SetAllPoints()
-	track.border = U.Border(track, 1, rgba(T.border))
-	local knob = U.Solid(track, "ARTWORK", rgba(T.muted))
-	knob:SetSize(12, 12)
+	track:SetSize(36, 20)
+	track.bg = U.Round(track, 10, "BACKGROUND")
+	track.bg:SetAllPoints(track)
+	track.border = { SetColor = function() end, SetShown = function() end } -- (EverlookUI 6 had a square border)
+	local knob = track:CreateTexture(nil, "ARTWORK")
+	knob:SetTexture(UI.media and (UI.media .. "Round") or U.WHITE)
+	knob:SetSize(14, 14)
+	track.knob = knob
 	function track:SetOn(on)
+		self.on = on and true or false
 		knob:ClearAllPoints()
 		if on then
 			knob:SetPoint("RIGHT", track, "RIGHT", -3, 0)
-			knob:SetVertexColor(rgba(T.onAccent))
+			knob:SetVertexColor(rgba(T.text))
 			track.bg:SetVertexColor(rgba(T.accent))
-			track.border:SetColor(rgba(T.accent))
 		else
 			knob:SetPoint("LEFT", track, "LEFT", 3, 0)
 			knob:SetVertexColor(rgba(T.muted))
-			track.bg:SetVertexColor(rgba(T.surface))
-			track.border:SetColor(rgba(T.border))
+			track.bg:SetVertexColor(rgba(T.surfaceHi))
 		end
 	end
 	return track
@@ -536,11 +976,9 @@ function UI.Toggle(stack, opt)
 	local T = stack.T
 	local f = CreateFrame("Button")
 	local track = Switch(f, T)
-	track:SetPoint("LEFT")
-	local label = Text(f, T.font, T.text)
-	label:SetPoint("LEFT", track, "RIGHT", 10, 0)
-	label:SetPoint("RIGHT")
-	label:SetText(opt.label)
+	track:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+	f.switch = track
+	local cut = RowLabel(f, T, opt, 36)
 	function f:Refresh()
 		track:SetOn(opt.get() and true or false)
 		local enabled = not opt.disabled or not opt.disabled()
@@ -548,13 +986,15 @@ function UI.Toggle(stack, opt)
 		f:EnableMouse(enabled)
 	end
 	f:SetScript("OnClick", function()
-		opt.set(not opt.get())
+		local before = opt.get()
+		opt.set(not before)
+		Changed(stack, opt, before)
 		stack:RefreshAll() -- settings that depend on this one grey out or come back at once
 		if opt.after then opt.after() end
 	end)
-	Tooltip(f, opt.label, opt.desc)
+	if cut then Tooltip(f, opt.label, opt.desc) end
 	f.searchInfo = opt.label and SearchInfo(opt)
-	stack:Add(f, 20)
+	stack:Add(f, f.eluiMeasure(f, stack.width), 0)
 	f:Refresh()
 	return f
 end
@@ -562,49 +1002,48 @@ end
 ------------------------------------------------------------------------
 -- Slider with an editable value. No mouse wheel: the wheel scrolls the page.
 ------------------------------------------------------------------------
+local SLIDER_W, VALUE_W = 150, 50
 function UI.Slider(stack, opt)
 	local T = stack.T
 	local f = CreateFrame("Frame")
-	local label = Text(f, T.font, T.text)
-	label:SetPoint("TOPLEFT")
-	label:SetText(opt.label)
-
-	local slider = CreateFrame("Slider", nil, f)
-	slider:SetOrientation("HORIZONTAL")
-	slider:SetHeight(16)
-	slider:SetPoint("TOPLEFT", 0, -20)
-	slider:SetPoint("RIGHT", f, "RIGHT", -70, 0)
-	slider:SetMinMaxValues(opt.min, opt.max)
-	slider:SetValueStep(opt.step or 1)
-	slider:SetObeyStepOnDrag(true)
-	local rail = U.Solid(slider, "BACKGROUND", rgba(T.surface))
-	rail:SetHeight(4)
-	rail:SetPoint("LEFT")
-	rail:SetPoint("RIGHT")
-	local fill = U.Solid(slider, "ARTWORK", rgba(T.accent))
-	fill:SetHeight(4)
-	fill:SetPoint("LEFT")
-	local thumb = slider:CreateTexture(nil, "OVERLAY")
-	thumb:SetTexture(U.WHITE)
-	thumb:SetVertexColor(rgba(T.text))
-	thumb:SetSize(10, 14)
-	slider:SetThumbTexture(thumb)
+	local cut = RowLabel(f, T, opt, SLIDER_W + 12 + VALUE_W)
 
 	local box = CreateFrame("EditBox", nil, f)
-	box:SetSize(56, 20)
-	box:SetPoint("LEFT", slider, "RIGHT", 12, 0)
+	box:SetSize(VALUE_W, 22)
+	box:SetPoint("RIGHT", f, "RIGHT", 0, 0)
 	box:SetAutoFocus(false)
 	box:SetJustifyH("CENTER")
 	U.SetFont(box, T.font)
 	box:SetTextColor(rgba(T.text))
-	U.Solid(box, "BACKGROUND", rgba(T.surface)):SetAllPoints()
-	U.Border(box, 1, rgba(T.border))
+	box.bg, box.border = U.RoundBox(box, 4, T.surface, T.border)
+
+	local slider = CreateFrame("Slider", nil, f)
+	slider:SetOrientation("HORIZONTAL")
+	slider:SetSize(SLIDER_W, 16)
+	slider:SetPoint("RIGHT", box, "LEFT", -12, 0)
+	slider:SetMinMaxValues(opt.min, opt.max)
+	slider:SetValueStep(opt.step or 1)
+	slider:SetObeyStepOnDrag(true)
+	local rail = U.Round(slider, 2, "BACKGROUND")
+	rail:SetHeight(4)
+	rail:SetPoint("LEFT")
+	rail:SetPoint("RIGHT")
+	rail:SetVertexColor(rgba(T.surfaceHi))
+	local fill = U.Round(slider, 2, "ARTWORK")
+	fill:SetHeight(4)
+	fill:SetPoint("LEFT")
+	fill:SetVertexColor(rgba(T.accent))
+	local thumb = slider:CreateTexture(nil, "OVERLAY")
+	thumb:SetTexture(UI.media and (UI.media .. "Round") or U.WHITE)
+	thumb:SetVertexColor(rgba(T.text))
+	thumb:SetSize(14, 14)
+	slider:SetThumbTexture(thumb)
 
 	local fmt = opt.fmt or (opt.step and opt.step < 1 and "%.2f" or "%d")
 	local updating = false
 	local function updateFill(v)
 		local w = slider:GetWidth()
-		if w and w > 0 then fill:SetWidth(math.max(1, w * (v - opt.min) / (opt.max - opt.min))) end
+		if w and w > 0 then fill:SetWidth(math.max(4, w * (v - opt.min) / (opt.max - opt.min))) end
 	end
 	function f:Refresh()
 		updating = true
@@ -624,7 +1063,9 @@ function UI.Slider(stack, opt)
 		v = math.floor(v / step + 0.5) * step
 		box:SetText(string.format(fmt, v))
 		updateFill(v)
+		local before = opt.get()
 		opt.set(v)
+		Changed(stack, opt, before)
 		if opt.after then opt.after() end
 	end)
 	slider:SetScript("OnSizeChanged", function() updateFill(slider:GetValue()) end)
@@ -637,16 +1078,20 @@ function UI.Slider(stack, opt)
 			updating = true
 			slider:SetValue(v)
 			updating = false
+			local before = opt.get()
 			opt.set(v)
+			Changed(stack, opt, before)
 			if opt.after then opt.after() end
 		end
 		self:ClearFocus()
 		f:Refresh()
 	end)
 	box:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Refresh() end)
-	Tooltip(f, opt.label, opt.desc)
+	box:SetScript("OnEditFocusGained", function(self) self.border:SetColor(rgba(T.accent)) end)
+	box:SetScript("OnEditFocusLost", function(self) self.border:SetColor(rgba(T.border)) end)
+	Tooltip(f, opt.label, cut and opt.desc or nil)
 	f.searchInfo = opt.label and SearchInfo(opt)
-	stack:Add(f, 40)
+	stack:Add(f, f.eluiMeasure(f, stack.width), 0)
 	f:Refresh()
 	return f
 end
@@ -677,11 +1122,10 @@ local function OpenPopup(owner, items, current, onPick, opts)
 		popup:SetFrameStrata("FULLSCREEN_DIALOG")
 		popup:SetFrameLevel(catcher:GetFrameLevel() + 10)
 		popup:SetClampedToScreen(true)
-		popup.bg = U.Solid(popup, "BACKGROUND", rgba(T.surface))
-		popup.bg:SetAllPoints()
-		U.Border(popup, 1, rgba(T.border))
+		popup.bg, popup.edge = U.RoundBox(popup, 6, T.surface, T.border)
 		popup.buttons = {}
 	end
+	popup.bg:SetVertexColor(rgba(T.surface))
 	for _, b in ipairs(popup.buttons) do b:Hide() end
 	local width = opts.width or (owner and owner:GetWidth()) or 200
 	for i, item in ipairs(items) do
@@ -689,8 +1133,8 @@ local function OpenPopup(owner, items, current, onPick, opts)
 		if not b then
 			b = CreateFrame("Button", nil, popup)
 			b:SetHeight(22)
-			b.hl = U.Solid(b, "BACKGROUND", rgba(T.accentDim))
-			b.hl:SetAllPoints()
+			b.hl = U.Round(b, 4, "BACKGROUND")
+			b.hl:SetAllPoints(b)
 			b.hl:Hide()
 			b.icon = b:CreateTexture(nil, "ARTWORK")
 			b.icon:SetSize(16, 16)
@@ -703,8 +1147,8 @@ local function OpenPopup(owner, items, current, onPick, opts)
 			popup.buttons[i] = b
 		end
 		b.hl:SetVertexColor(rgba(T.accentDim))
-		b:SetPoint("TOPLEFT", 1, -1 - (i - 1) * 22)
-		b:SetPoint("RIGHT", -1, 0)
+		b:SetPoint("TOPLEFT", 3, -3 - (i - 1) * 22)
+		b:SetPoint("RIGHT", -3, 0)
 		b.icon:SetShown(item.icon ~= nil)
 		if item.icon then b.icon:SetTexture(item.icon) end
 		b.text:ClearAllPoints()
@@ -722,7 +1166,7 @@ local function OpenPopup(owner, items, current, onPick, opts)
 		end)
 		b:Show()
 	end
-	popup:SetSize(width, #items * 22 + 2)
+	popup:SetSize(width, #items * 22 + 6)
 	popup:ClearAllPoints()
 	if opts.atCursor or not owner then
 		local x, y = GetCursorPosition()
@@ -736,29 +1180,45 @@ local function OpenPopup(owner, items, current, onPick, opts)
 end
 UI.OpenPopup = OpenPopup
 
+-- The dropdown's button: the value and a chevron on a rounded box. Returns button, valueText.
+local function DropButton(parent, T, width)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(width, 26)
+	b.eluiTheme = T
+	b.bg, b.edge = U.RoundBox(b, 4, T.surface, T.border)
+	local value = Text(b, T.font, T.text)
+	value:SetPoint("LEFT", 10, 0)
+	value:SetPoint("RIGHT", -26, 0)
+	value:SetWordWrap(false)
+	local arrow = b:CreateTexture(nil, "ARTWORK")
+	arrow:SetSize(10, 10)
+	arrow:SetPoint("RIGHT", -10, 0)
+	if UI.SetIcon(arrow, "chevron") then
+		arrow:SetVertexColor(rgba(T.muted))
+	else
+		local a = Text(b, T.font, T.muted)
+		a:SetPoint("RIGHT", -8, 0)
+		a:SetText("v")
+	end
+	b:SetScript("OnEnter", function() b.bg:SetVertexColor(rgba(T.surfaceHi)) end)
+	b:SetScript("OnLeave", function() b.bg:SetVertexColor(rgba(T.surface)) end)
+	return b, value
+end
+UI.DropButton = DropButton
+
 function UI.Dropdown(stack, opt)
 	local T = stack.T
 	local f = CreateFrame("Frame")
-	local label = Text(f, T.font, T.text)
-	label:SetPoint("TOPLEFT")
-	label:SetText(opt.label)
-	local b = CreateFrame("Button", nil, f)
-	b:SetHeight(24)
-	b:SetPoint("TOPLEFT", 0, -18)
-	b:SetWidth(opt.width or 240)
-	b.eluiTheme = T
-	local bg = U.Solid(b, "BACKGROUND", rgba(T.surface))
-	bg:SetAllPoints()
-	U.Border(b, 1, rgba(T.border))
-	local value = Text(b, T.font, T.text)
-	value:SetPoint("LEFT", 10, 0)
-	value:SetPoint("RIGHT", -24, 0)
-	value:SetWordWrap(false)
-	local arrow = Text(b, T.font, T.muted)
-	arrow:SetPoint("RIGHT", -8, 0)
-	arrow:SetText("v")
-	b:SetScript("OnEnter", function() bg:SetVertexColor(rgba(T.surfaceHi)) end)
-	b:SetScript("OnLeave", function() bg:SetVertexColor(rgba(T.surface)) end)
+	local width, b, value, cut
+	if opt.label then
+		width = math.min(opt.width or 200, math.max(140, math.floor(stack.width * 0.5)))
+		b, value = DropButton(f, T, width)
+		b:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+		cut = RowLabel(f, T, opt, width)
+	else
+		b, value = DropButton(f, T, opt.width or 240)
+		b:SetPoint("TOPLEFT", 0, 0)
+	end
 	local function items() if type(opt.items) == "function" then return opt.items() or {} end return opt.items or {} end
 	function f:Refresh()
 		local cur = opt.get()
@@ -773,12 +1233,14 @@ function UI.Dropdown(stack, opt)
 	end
 	b:SetScript("OnClick", function()
 		OpenPopup(b, items(), opt.get(), function(v)
+			local before = opt.get()
 			opt.set(v)
+			Changed(stack, opt, before)
 			stack:RefreshAll()
 			if opt.after then opt.after() end
-		end)
+		end, { width = math.max(b:GetWidth() or 0, 180) })
 	end)
-	Tooltip(b, opt.label, opt.desc)
+	Tooltip(b, opt.label, (cut or not opt.label) and opt.desc or nil)
 	f.searchInfo = opt.label and SearchInfo(opt, {
 		value = function() return value:GetText() end,
 		choices = function()
@@ -787,7 +1249,7 @@ function UI.Dropdown(stack, opt)
 			return table.concat(t, " ")
 		end,
 	})
-	stack:Add(f, 44)
+	if opt.label then stack:Add(f, f.eluiMeasure(f, stack.width), 0) else stack:Add(f, 26) end
 	f:Refresh()
 	return f
 end
@@ -799,14 +1261,10 @@ function UI.Color(stack, opt)
 	local T = stack.T
 	local f = CreateFrame("Button")
 	local sw = CreateFrame("Frame", nil, f)
-	sw:SetSize(30, 18)
-	sw:SetPoint("LEFT")
-	local fill = U.Solid(sw, "ARTWORK", 1, 1, 1, 1)
-	fill:SetAllPoints()
-	U.Border(sw, 1, rgba(T.border))
-	local label = Text(f, T.font, T.text)
-	label:SetPoint("LEFT", sw, "RIGHT", 10, 0)
-	label:SetText(opt.label)
+	sw:SetSize(36, 20)
+	sw:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+	local fill = U.RoundBox(sw, 4, { 1, 1, 1, 1 }, T.border)
+	local cut = RowLabel(f, T, opt, 36)
 	function f:Refresh()
 		local c = opt.get() or { 1, 1, 1, 1 }
 		fill:SetVertexColor(c[1], c[2], c[3], c[4] or 1)
@@ -818,7 +1276,9 @@ function UI.Color(stack, opt)
 		local c = opt.get() or { 1, 1, 1, 1 }
 		local start = { c[1], c[2], c[3], c[4] or 1 }
 		local function apply(r, g, b, a)
+			local before = opt.get()
 			opt.set({ r, g, b, opt.hasAlpha and a or (c[4] or 1) })
+			Changed(stack, opt, before)
 			f:Refresh()
 			if opt.after then opt.after() end
 		end
@@ -837,9 +1297,9 @@ function UI.Color(stack, opt)
 			ColorPickerFrame:SetupColorPickerAndShow(info)
 		end
 	end)
-	Tooltip(f, opt.label, opt.desc)
+	if cut then Tooltip(f, opt.label, opt.desc) end
 	f.searchInfo = opt.label and SearchInfo(opt)
-	stack:Add(f, 20)
+	stack:Add(f, f.eluiMeasure(f, stack.width), 0)
 	f:Refresh()
 	return f
 end
@@ -855,40 +1315,46 @@ function UI.EditBox(parent, width, height)
 	box:SetTextInsets(8, 8, 0, 0)
 	U.SetFont(box, T.font)
 	box:SetTextColor(rgba(T.text))
-	U.Solid(box, "BACKGROUND", rgba(T.surface)):SetAllPoints()
-	box.border = U.Border(box, 1, rgba(T.border))
+	box.bg, box.border = U.RoundBox(box, 4, T.surface, T.border)
 	box:SetScript("OnEditFocusGained", function(self) self.border:SetColor(rgba(T.accent)) end)
 	box:SetScript("OnEditFocusLost", function(self) self.border:SetColor(rgba(T.border)) end)
 	box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	return box
 end
 
--- A labelled text box. opt: label, placeholder, width, get/set (bound: saved on Enter or leaving the box),
+-- A text box. opt: label, placeholder, width, get/set (bound: saved on Enter or leaving the box),
 -- onChange(text) while typing, onEnter(text), button = { label, onClick(text, box), width, style }, maxLetters.
+-- With a label it is a setting row (the box on the right); without one, a box (and its button) on the left.
 function UI.Input(stack, opt)
 	local T = stack.T
 	local f = CreateFrame("Frame")
 	f:SetParent(stack.parent)
-	local top = 0
+	local bw = opt.button and (opt.button.width or 110) or 0
+	local box, cut
 	if opt.label then
-		local label = Text(f, T.font, T.text)
-		label:SetPoint("TOPLEFT")
-		label:SetText(opt.label)
-		top = -18
+		local w = math.min(opt.width or 220, math.max(120, math.floor(stack.width * 0.55) - (bw > 0 and bw + 8 or 0)))
+		box = UI.EditBox(f, w, 26)
+		box:SetPoint("RIGHT", f, "RIGHT", bw > 0 and -(bw + 8) or 0, 0)
+		cut = RowLabel(f, T, opt, w + (bw > 0 and bw + 8 or 0))
+	else
+		box = UI.EditBox(f, opt.width or 240, 26)
+		box:SetPoint("TOPLEFT", 0, 0)
 	end
-	local box = UI.EditBox(f, opt.width or 240, 24)
-	box:SetPoint("TOPLEFT", 0, top)
 	if opt.maxLetters then box:SetMaxLetters(opt.maxLetters) end
 	f.box = box
 	local hint = Text(box, T.font, T.muted)
 	hint:SetPoint("LEFT", 8, 0)
+	hint:SetPoint("RIGHT", -8, 0)
+	hint:SetWordWrap(false)
 	hint:SetText(opt.placeholder or "")
 	local function updateHint() hint:SetShown(not box:HasFocus() and (box:GetText() or "") == "") end
 	box:HookScript("OnEditFocusGained", updateHint)
 	box:HookScript("OnEditFocusLost", function(self)
 		updateHint()
 		if opt.set and (not opt.get or self:GetText() ~= (opt.get() or "")) then
+			local before = opt.get and opt.get()
 			opt.set(self:GetText())
+			if opt.get then Changed(stack, opt, before) end
 			if opt.after then opt.after() end
 		end
 	end)
@@ -905,8 +1371,8 @@ function UI.Input(stack, opt)
 		box:SetScript("OnEscapePressed", function(self) self:SetText(opt.get() or ""); self:ClearFocus() end)
 	end
 	if opt.button then
-		local b = UI.Button(f, opt.button.label, function() opt.button.onClick(box:GetText(), box) end, opt.button.width or 110, opt.button.style)
-		b:SetPoint("LEFT", box, "RIGHT", 8, 0)
+		local b = UI.Button(f, opt.button.label, function() opt.button.onClick(box:GetText(), box) end, bw, opt.button.style)
+		if opt.label then b:SetPoint("RIGHT", f, "RIGHT", 0, 0) else b:SetPoint("LEFT", box, "RIGHT", 8, 0) end
 		f.button = b
 	end
 	if opt.get then
@@ -915,10 +1381,10 @@ function UI.Input(stack, opt)
 			updateHint()
 		end
 	end
-	Tooltip(box, opt.label, opt.desc)
+	Tooltip(box, opt.label, (cut or not opt.label) and opt.desc or nil)
 	-- a plain text box is usually data entry (a name, a filter), not a setting: only settings and opt-ins are found
 	if opt.label and (opt.searchKey or opt.keywords) then f.searchInfo = SearchInfo(opt) end
-	stack:Add(f, opt.label and 44 or 26)
+	if opt.label then stack:Add(f, f.eluiMeasure(f, stack.width), 0) else stack:Add(f, 26) end
 	if f.Refresh then f:Refresh() else updateHint() end
 	return f
 end
@@ -931,7 +1397,7 @@ function UI.CopyBox(stack, label, text)
 	local l = Text(f, T.font, T.text)
 	l:SetPoint("TOPLEFT")
 	l:SetText(label)
-	local box = UI.EditBox(f, stack.width, 24)
+	local box = UI.EditBox(f, stack.width, 26)
 	box:SetPoint("TOPLEFT", 0, -18)
 	box:SetPoint("RIGHT")
 	local function value() if type(text) == "function" then return text() or "" end return text or "" end
@@ -943,7 +1409,7 @@ function UI.CopyBox(stack, label, text)
 	f.box = box
 	function f:Refresh() box:SetText(value()) end
 	Tooltip(box, label, "Click, then Ctrl+C to copy.")
-	stack:Add(f, 44)
+	stack:Add(f, 46)
 	f:Refresh()
 	return f
 end
@@ -972,8 +1438,9 @@ function UI.List(stack, opt)
 		r:SetHeight(rowH)
 		r:SetPoint("TOPLEFT", 0, -(i - 1) * (rowH + 2))
 		r:SetPoint("RIGHT")
-		r.bg = U.Solid(r, "BACKGROUND", rgba(T.surface))
-		r.bg:SetAllPoints()
+		r.bg = U.Round(r, 4, "BACKGROUND")
+		r.bg:SetAllPoints(r)
+		r.bg:SetVertexColor(rgba(T.surface))
 		local x = 8
 		if opt.toggle then
 			r.switch = Switch(r, T)
@@ -981,10 +1448,17 @@ function UI.List(stack, opt)
 			r.switch:EnableMouse(true)
 			r.switch:SetScript("OnMouseDown", function()
 				if r.item == nil then return end
-				opt.toggle.set(r.item, not opt.toggle.get(r.item))
+				local item = r.item
+				local before = opt.toggle.get(item)
+				opt.toggle.set(item, not before)
+				Changed(stack, {
+					label = opt.title and opt.title(item) or nil,
+					get = function() return opt.toggle.get(item) end,
+					set = function(v) opt.toggle.set(item, v) end,
+				}, before, item)
 				stack:RefreshAll()
 			end)
-			x = x + 44
+			x = x + 46
 		end
 		if opt.icon then
 			r.icon = r:CreateTexture(nil, "ARTWORK")
@@ -1115,11 +1589,19 @@ local function AttachScrollBar(scroll, child, holder, step, onlyWhile)
 	local T = ThemeOf(holder)
 	local track = CreateFrame("Frame", nil, holder)
 	track:SetWidth(BAR_W)
-	U.Solid(track, "BACKGROUND", T.muted[1], T.muted[2], T.muted[3], 0.12):SetAllPoints()
+	-- a slim rounded rail and thumb in the middle of a 12 px wide grab area
+	local rail = U.Round(track, 3, "BACKGROUND")
+	rail:SetPoint("TOP", track, "TOP", 0, 0)
+	rail:SetPoint("BOTTOM", track, "BOTTOM", 0, 0)
+	rail:SetWidth(6)
+	rail:SetVertexColor(T.muted[1], T.muted[2], T.muted[3], 0.08)
 	local thumb = CreateFrame("Frame", nil, track)
 	thumb:SetWidth(BAR_W)
-	local thumbTex = U.Solid(thumb, "ARTWORK", T.muted[1], T.muted[2], T.muted[3], 0.55)
-	thumbTex:SetAllPoints()
+	local thumbTex = U.Round(thumb, 3, "ARTWORK")
+	thumbTex:SetPoint("TOP", thumb, "TOP", 0, 0)
+	thumbTex:SetPoint("BOTTOM", thumb, "BOTTOM", 0, 0)
+	thumbTex:SetWidth(6)
+	thumbTex:SetVertexColor(T.muted[1], T.muted[2], T.muted[3], 0.55)
 	track:Hide()
 
 	local function maxScroll()
@@ -1275,8 +1757,7 @@ function UI.LinkWindow(name, T, intro, url)
 	f:SetClampedToScreen(true)
 	f:EnableMouse(true)
 	f:Hide()
-	U.Solid(f, "BACKGROUND", rgba(T.bg)):SetAllPoints()
-	U.Border(f, 1, rgba(T.border))
+	WindowChrome(f, T)
 	local text = Text(f, T.font, T.text)
 	text:SetPoint("TOPLEFT", 16, -14)
 	text:SetPoint("TOPRIGHT", -16, -14)
@@ -1519,8 +2000,19 @@ UI.App = UI.App or {}
 local App = UI.App
 App.__index = App
 
-local SIDEBAR_W = 170
-local AI_BUTTON_W = 76
+local SIDEBAR_W = 196 -- the sidebar of a window with more than one page
+local HEADER_H = 72   -- the page title and description (taller for a long description or a preview)
+local FOOTER_H = 48   -- the footer bar: profile picker on the left, Undo on the right
+local MIN_H = 420
+UI.SIDEBAR_W, UI.FOOTER_H = SIDEBAR_W, FOOTER_H
+
+-- The window width. EverlookUI 6 windows were 780 (sidebar) or 600 px wide by default and addons sized their pages
+-- (spec.width) for the room that left; the new sidebar and cards take more, so the window grows by that much and a
+-- page keeps exactly the width it had (stack.width): 780 -> 826, 600 -> 624.
+local function WindowWidth(spec, sidebar)
+	if sidebar then return (spec.width or 780) + 46 end
+	return (spec.width or 600) + 24
+end
 
 local function addonVersion(addon)
 	local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
@@ -2116,10 +2608,30 @@ end
 -- Window
 ------------------------------------------------------------------------
 -- build(stack, app, section) fills the section's page; called once, when it is first shown.
-function App:Section(id, title, build)
+-- opts (EverlookUI 7): icon (a name from UI.IconNames such as "gear", or any texture path or file ID; default from the
+-- title, UI.PageIcon) and desc (the line under the page title; default: the sub-line of the page's first heading
+-- when that heading repeats the page title).
+function App:Section(id, title, build, opts)
 	assert(not self.sections[id], "duplicate section " .. id)
 	self.sections[id] = { id = id, title = title, build = build }
 	self.order[#self.order + 1] = id
+	if opts then self:SectionInfo(id, opts) end
+end
+
+-- Change a page's icon, description or title later: app:SectionInfo("general", { icon = "gear", desc = "..." }).
+function App:SectionInfo(id, opts)
+	local s = self.sections[id]
+	if not s or type(opts) ~= "table" then return end
+	if opts.icon ~= nil then s.icon = opts.icon end
+	if opts.desc ~= nil then s.desc = opts.desc end
+	if opts.title ~= nil then s.title = opts.title end
+	local b = self.window and self.window.navButtons and self.window.navButtons[id]
+	if b then
+		b.text:SetText(s.title)
+		UI.SetIcon(b.icon, s.icon or UI.PageIcon(s.title))
+		self:PaintNav()
+	end
+	if self.current == id then self:UpdatePageHeader() end
 end
 
 -- The widget for a setting (by key), with `extra` options mixed in.
@@ -2145,7 +2657,7 @@ function App:Widget(stack, key, extra)
 end
 
 ------------------------------------------------------------------------
--- Settings search in the window. The box sits at the top centre; typing lists the matching controls from
+-- Settings search in the window. The box sits at the top of the sidebar (or of a one-page window); typing lists the matching controls from
 -- every page. The listed controls are the real ones, borrowed from their page (its layout keeps their room)
 -- and given back when the search changes or ends, so whatever you change there is the setting itself.
 ------------------------------------------------------------------------
@@ -2185,7 +2697,7 @@ function App:BuildSection(id)
 	s.scroll:Hide()
 	local width = f.contentWidth - 24 -- the scroll bar takes the right edge
 	s.scroll.child:SetWidth(width)
-	s.stack = UI.Stack(s.scroll.child, width, self.T)
+	s.stack = UI.Stack(s.scroll.child, width, self.T, { cards = true })
 	s.stack.app, s.stack.section = self, id
 	self.searchBySection[id] = {}
 	s.build(s.stack, self, s)
@@ -2234,8 +2746,8 @@ end
 
 local function Listed(e) return e.frame:IsShown() end -- a control its addon hid (doesn't apply now) isn't listed
 
--- Put a control into the results at `y`.
-function App:Borrow(e, parent, y, width)
+-- Put a control into the results at x, y.
+function App:Borrow(e, parent, y, width, x)
 	local fr, se = e.frame, e.frame.stackEntry
 	if not self.borrowed[e] then
 		self.borrowed[e] = true
@@ -2243,7 +2755,7 @@ function App:Borrow(e, parent, y, width)
 		fr:SetParent(parent)
 	end
 	fr:ClearAllPoints()
-	fr:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
+	fr:SetPoint("TOPLEFT", parent, "TOPLEFT", x or 0, -y)
 	fr:SetWidth(width)
 	fr:SetHeight(se.height)
 	if fr.Refresh then fr:Refresh() end
@@ -2289,6 +2801,12 @@ function App:Search(text)
 	self.searchQuery = q
 	local results = Search.Match(entries, q, Listed)
 	self:ShowResults(results, q, entries)
+	if f.pageTitle then
+		for _, d in pairs(self.previews or {}) do if d.frame then d.frame:Hide() end end
+		f.pageTitle:SetText("Search results")
+		f.pageDesc:SetText(#results == 0 and "Nothing found." or (#results == 1 and "1 setting matches." or (#results .. " settings match.")))
+		f.pageDesc:Show()
+	end
 	return results
 end
 
@@ -2297,11 +2815,13 @@ function App:ShowResults(results, q, entries)
 	local R = f.results
 	local child = R.child
 	local width = f.contentWidth - 24
+	local inner = width - 2 * CARD_PAD
 	local n = math.min(#results, MAX_RESULTS)
 	local want = {}
 	for i = 1, n do want[results[i].entry] = true end
 	self:ReturnBorrowed(want)
 	for _, row in ipairs(R.paths) do row.entry = nil; row:Hide() end
+	for _, c in ipairs(R.cards) do c:Hide() end
 	R.empty:Hide()
 	R.suggest:Hide()
 	R.more:Hide()
@@ -2319,6 +2839,7 @@ function App:ShowResults(results, q, entries)
 			y = y + 22
 		end
 	else
+		-- each result: its path (click to go there), then the control in a card of its own
 		for i = 1, n do
 			local e = results[i].entry
 			local row = R.paths[i] or R.NewPath(i)
@@ -2327,11 +2848,25 @@ function App:ShowResults(results, q, entries)
 			local tw = row.text.GetUnboundedStringWidth and row.text:GetUnboundedStringWidth() or row.text:GetStringWidth() or 200
 			row:SetWidth(math.min(width, (tw or 200) + 4))
 			row:ClearAllPoints()
-			row:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+			row:SetPoint("TOPLEFT", child, "TOPLEFT", 2, -y)
 			row:Show()
-			y = y + 17
-			self:Borrow(e, child, y, width)
-			y = y + e.frame.stackEntry.height + 18
+			y = y + 18
+			local se = e.frame.stackEntry
+			local isRow = se.row
+			local top = y + (isRow and 2 or 10)
+			self:Borrow(e, child, top, inner - (se.indent or 0), CARD_PAD + (se.indent or 0))
+			local bottom = top + se.height + (isRow and 2 or 10)
+			local card = R.cards[i]
+			if not card then
+				card = U.Round(child, T.radius, "BACKGROUND", -6)
+				card:SetVertexColor(rgba(T.card))
+				R.cards[i] = card
+			end
+			card:ClearAllPoints()
+			card:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+			card:SetSize(width, bottom - y)
+			card:Show()
+			y = bottom + CARD_GAP
 		end
 		if #results > n then
 			R.more:SetText(("%d more. Add a word to narrow it down."):format(#results - n))
@@ -2361,6 +2896,7 @@ function App:StopSearch()
 		s.stack:RefreshAll()
 		s.scroll:Show()
 	end
+	self:UpdatePageHeader()
 end
 
 -- From a result's path: open its page, scroll to it and light it up for a moment.
@@ -2404,18 +2940,23 @@ function App:Flash(frame)
 end
 
 -- The box, the results page and the keys (Ctrl+F, Escape). Called by CreateWindow.
-function App:CreateSearch(f, width)
+function App:CreateSearch(f, width, parent)
 	local app, T = self, self.T
 	self.borrowed = self.borrowed or {}
 	self.searchBySection = self.searchBySection or {}
 
-	local box = UI.EditBox(f, width, 26)
+	local box = UI.EditBox(parent or f, width, 26)
 	box:SetTextInsets(26, 26, 0, 0)
 	box:SetMaxLetters(60)
 	local icon = box:CreateTexture(nil, "OVERLAY")
-	icon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
-	icon:SetSize(14, 14)
-	icon:SetPoint("LEFT", 8, -1)
+	if UI.SetIcon(icon, "search") then
+		icon:SetSize(12, 12)
+		icon:SetPoint("LEFT", 9, 0)
+	else
+		icon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
+		icon:SetSize(14, 14)
+		icon:SetPoint("LEFT", 8, -1)
+	end
 	icon:SetVertexColor(rgba(T.muted))
 	local hint = Text(box, T.font, T.muted)
 	hint:SetPoint("LEFT", 26, 0)
@@ -2468,7 +3009,7 @@ function App:CreateSearch(f, width)
 	local R = UI.ScrollPage(f.content)
 	R:Hide()
 	R.child:SetWidth(f.contentWidth - 24)
-	R.paths = {}
+	R.paths, R.cards = {}, {}
 	function R.NewPath(i)
 		local b = CreateFrame("Button", nil, R.child)
 		b:SetHeight(14)
@@ -2523,11 +3064,16 @@ function App:CreateSearch(f, width)
 	return box
 end
 
+-- The window's place and size: holder.window = { point, relativePoint, x, y, width, height }.
 local function SavePosition(app, f)
 	local holder = app.spec.position and app.spec.position()
 	if type(holder) ~= "table" then return end
 	local point, _, rel, x, y = f:GetPoint()
-	if point then holder.window = { point, rel or point, math.floor((x or 0) + 0.5), math.floor((y or 0) + 0.5) } end
+	if point then
+		local w, h = f:GetWidth(), f:GetHeight()
+		holder.window = { point, rel or point, math.floor((x or 0) + 0.5), math.floor((y or 0) + 0.5),
+			w and math.floor(w + 0.5) or nil, h and math.floor(h + 0.5) or nil }
+	end
 end
 
 local function RestorePosition(app, f)
@@ -2536,16 +3082,145 @@ local function RestorePosition(app, f)
 	f:ClearAllPoints()
 	if type(p) == "table" and type(p[1]) == "string" then
 		f:SetPoint(p[1], UIParent, p[2] or p[1], tonumber(p[3]) or 0, tonumber(p[4]) or 0)
+		local w, h = tonumber(p[5]), tonumber(p[6])
+		if w and h then f:SetSize(math.max(app.minW or w, w), math.max(MIN_H, h)) end
 	else
 		f:SetPoint("CENTER")
 	end
 end
 
+local function StringWidth(fs)
+	return (fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()) or fs:GetStringWidth() or 0
+end
+
+-- The icon for a tool link without one, from its label.
+local function ToolIcon(d)
+	if d.icon then return d.icon end
+	local l = tostring(d.label or ""):lower()
+	if l:find("lock") or l:find("move") then return "lock" end
+	if l:find("test") or l:find("preview") then return "sparkle" end
+	if l:find("bug") or l:find("feedback") then return "bug" end
+	if l:find("macro") or l:find("key") then return "keyboard" end
+	if l:find("reset") then return "refresh" end
+	return "wrench"
+end
+
+-- A tool link (sidebar bottom, or the footer of a one-page window): an icon and plain text, lit on hover.
+-- Behaves like a UI.Button for the addon: SetText, GetText, SetUsable, .label, .def.
+local function ToolLink(parent, T, d, onClick)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetHeight(24)
+	b.eluiTheme = T
+	b.def = d
+	b.bg = U.Round(b, 4, "BACKGROUND")
+	b.bg:SetAllPoints(b)
+	b.bg:SetVertexColor(rgba(T.surfaceHi))
+	b.bg:Hide()
+	local color = d.style == "accent" and T.accent or T.muted
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetSize(14, 14)
+	b.icon:SetPoint("LEFT", 8, 0)
+	local hasIcon = UI.SetIcon(b.icon, ToolIcon(d))
+	b.icon:SetVertexColor(rgba(color))
+	b.label = Text(b, T.font, color)
+	b.label:SetPoint("LEFT", hasIcon and 30 or 12, 0)
+	b.label:SetPoint("RIGHT", -6, 0)
+	b.label:SetWordWrap(false)
+	b.label:SetText(d.label)
+	b:SetScript("OnEnter", function(self)
+		self.bg:Show()
+		self.label:SetTextColor(rgba(T.text))
+		self.icon:SetVertexColor(rgba(T.text))
+	end)
+	b:SetScript("OnLeave", function(self)
+		self.bg:Hide()
+		self.label:SetTextColor(rgba(color))
+		self.icon:SetVertexColor(rgba(color))
+	end)
+	b:SetScript("OnClick", function(self, ...) if onClick then onClick(self, ...) end end)
+	function b:SetText(t) self.label:SetText(t) end
+	function b:GetText() return self.label:GetText() end
+	function b:SetUsable(on)
+		self:SetAlpha(on and 1 or 0.4)
+		self:EnableMouse(on and true or false)
+	end
+	-- as wide as its label (one-page footer)
+	function b:FitWidth()
+		self:SetWidth(math.ceil(StringWidth(self.label)) + (hasIcon and 30 or 12) + 12)
+		return self:GetWidth()
+	end
+	if d.desc then Tooltip(b, d.label, d.desc) end
+	return b
+end
+UI.ToolLink = ToolLink
+
+-- The addon's icon: spec.icon (an icon name, texture path or file ID), else the TOC's IconTexture, else its first
+-- letter on a rounded accent square.
+function App:MakeAppIcon(parent, size)
+	local T = self.T
+	local holder = CreateFrame("Frame", nil, parent)
+	holder:SetSize(size, size)
+	local icon = self.spec.icon
+	if icon == nil and self.spec.addon then
+		local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+		icon = get and get(self.spec.addon, "IconTexture")
+	end
+	local tex = holder:CreateTexture(nil, "ARTWORK")
+	tex:SetAllPoints(holder)
+	holder.texture = tex
+	if icon and UI.SetIcon(tex, icon) then
+		if UI.IsIconName(icon) then tex:SetVertexColor(rgba(T.accent)) end
+		return holder
+	end
+	local bg = U.Round(holder, math.floor(size / 4), "BACKGROUND")
+	bg:SetAllPoints(holder)
+	bg:SetVertexColor(rgba(T.accent))
+	local letter = Text(holder, math.floor(size * 0.55), T.onAccent)
+	letter:SetPoint("CENTER", 0, 0)
+	letter:SetJustifyH("CENTER")
+	letter:SetText((tostring(self.name):match("%w") or "?"):upper())
+	holder.letter = letter
+	return holder
+end
+
+-- "v1.2.3 · /whack": the sidebar footer, and the title row of a one-page window.
+function App:VersionLine() return self:Version() .. "  \194\183  " .. self.slash end
+
+-- The tool links: the addon's spec.buttons, AI help (when it has settings) and Report a bug (spec.feedbackURL).
+-- window.footer lists the addon's buttons and Report a bug (as in EverlookUI 6); window.aiButton is AI help.
+function App:MakeTools(parent)
+	local app, f, T = self, self.window, self.T
+	local tools = {}
+	f.footer = {}
+	for _, d in ipairs(self.spec.buttons or {}) do
+		local b = ToolLink(parent, T, d, function(btn) d.onClick(app, btn); app:RefreshButtons() end)
+		f.footer[#f.footer + 1] = b
+		tools[#tools + 1] = b
+	end
+	if #self.settingOrder > 0 then
+		local d = { label = "AI help", icon = "ai" }
+		local b = ToolLink(parent, T, d, function() app:ShowAiHelp() end)
+		Tooltip(b, "Get help from AI to configure this addon",
+			"Copies a description of every setting. Paste it into Claude or another AI with what you want; then paste its answer into "
+			.. self.slash .. " apply.")
+		f.aiButton = b
+		tools[#tools + 1] = b
+	end
+	if self.spec.feedbackURL then
+		local d = { label = "Report a bug", icon = "bug", desc = "Report a bug or suggest an idea: a link to copy.", feedback = true }
+		local b = ToolLink(parent, T, d, function() app:ShowFeedback() end)
+		f.footer[#f.footer + 1] = b
+		tools[#tools + 1] = b
+	end
+	return tools
+end
+
 function App:CreateWindow()
 	local app, T, spec = self, self.T, self.spec
 	local sidebar = #self.order > 1
-	local W = spec.width or (sidebar and 780 or 600)
-	local H = spec.height or 560
+	local W = WindowWidth(spec, sidebar)
+	local H = (spec.height or 560) + 40 -- room for the footer bar
+	self.minW = W
 	local f = CreateFrame("Frame", self.frameName .. "OptionsWindow", UIParent)
 	f.eluiTheme = T
 	f.app = self
@@ -2555,6 +3230,8 @@ function App:CreateWindow()
 	f:SetClampedToScreen(true)
 	f:EnableMouse(true)
 	f:SetMovable(true)
+	f:SetResizable(true)
+	if f.SetResizeBounds then f:SetResizeBounds(W, MIN_H) elseif f.SetMinResize then f:SetMinResize(W, MIN_H) end
 	f:RegisterForDrag("LeftButton")
 	f:SetScript("OnDragStart", function(self) self:StartMoving() end)
 	f:SetScript("OnDragStop", function(self)
@@ -2562,69 +3239,71 @@ function App:CreateWindow()
 		SavePosition(app, self)
 	end)
 	f:Hide()
+	self.window = f
 	RestorePosition(self, f)
-	U.Solid(f, "BACKGROUND", rgba(T.bg)):SetAllPoints()
-	U.Border(f, 1, rgba(T.border))
+	WindowChrome(f, T)
 
-	f.footer = {}
-	local function footerButton(parent, d, width)
-		local b = UI.Button(parent, d.label, function(btn) d.onClick(app, btn); app:RefreshButtons() end, width, d.style)
-		b.def = d
-		f.footer[#f.footer + 1] = b
-		if d.desc then Tooltip(b, d.label, d.desc) end
-		return b
-	end
-	local buttons = {}
-	for _, d in ipairs(spec.buttons or {}) do buttons[#buttons + 1] = d end
-	if spec.feedbackURL then
-		buttons[#buttons + 1] = { label = "Feedback / report a bug", onClick = function() app:ShowFeedback() end }
-	end
-
-	local contentLeft, contentTop, contentBottom, titleRight
+	-- the page area (its top is set below, under the header); the search results live in it too
+	local CL, top = sidebar and (SIDEBAR_W + 1 + 20) or 16, HEADER_H
+	local content = CreateFrame("Frame", nil, f)
+	f.content = content
+	f.contentWidth = W - CL - 16
+	local tools = {}
 	if sidebar then
 		local side = CreateFrame("Frame", nil, f)
 		side:SetPoint("TOPLEFT", 1, -1)
 		side:SetPoint("BOTTOMLEFT", 1, 1)
 		side:SetWidth(SIDEBAR_W)
-		U.Solid(side, "BACKGROUND", rgba(T.sidebar)):SetAllPoints()
+		local sbg = U.Round(side, 7, "BACKGROUND", 2, { tl = true, bl = true })
+		sbg:SetAllPoints(side)
+		sbg:SetVertexColor(rgba(T.sidebar))
 		local sideLine = U.Solid(side, "BORDER", rgba(T.border))
 		sideLine:SetWidth(1)
 		sideLine:SetPoint("TOPRIGHT")
 		sideLine:SetPoint("BOTTOMRIGHT")
+		f.sidebar = side
 
-		local logo = Text(side, T.fontHuge, T.text)
-		logo:SetPoint("TOPLEFT", 18, -18)
-		logo:SetWidth(SIDEBAR_W - 30)
-		logo:SetText(self.name)
-		-- a long single word ("MouseoverMacros") can't wrap and was cut off: shrink until the widest word fits
+		-- the addon: icon, name (shrinks until its longest word fits, may take two lines), subtitle
+		local icon = self:MakeAppIcon(side, 30)
+		icon:SetPoint("TOPLEFT", 14, -18)
+		f.appIcon = icon
+		local room = SIDEBAR_W - 54 - 10
+		local logo = Text(side, T.fontTitle + 1, T.text)
+		logo:SetPoint("TOPLEFT", 54, -17)
+		logo:SetWidth(room)
 		local font, size, flags = logo:GetFont()
 		if font and size then
 			local widest = 0
 			for word in tostring(self.name):gmatch("%S+") do
 				logo:SetText(word)
-				widest = math.max(widest, logo.GetUnboundedStringWidth and logo:GetUnboundedStringWidth() or logo:GetStringWidth() or 0)
+				widest = math.max(widest, StringWidth(logo))
 			end
-			local room = SIDEBAR_W - 30
-			if widest > room then
-				logo:SetFont(font, math.max(11, math.floor(size * room / widest)), flags)
-			end
-			logo:SetText(self.name)
+			if widest > room then logo:SetFont(font, math.max(11, math.floor(size * room / widest)), flags) end
 		end
-		local ver = Text(side, T.fontSmall, T.muted)
-		ver:SetPoint("TOPLEFT", logo, "BOTTOMLEFT", 0, -3)
-		ver:SetText(self:Version())
-		-- the nav starts under the name (which may wrap), the version and the tagline
-		local navTop = 18 + math.max(20, math.ceil(logo:GetStringHeight() or 20)) + 3 + math.max(10, math.ceil(ver:GetStringHeight() or 10))
-		if spec.tagline then
-			local tag = Text(side, T.fontSmall, T.muted)
-			tag:SetPoint("TOPLEFT", ver, "BOTTOMLEFT", 0, -8)
-			tag:SetWidth(SIDEBAR_W - 30)
-			tag:SetText(spec.tagline)
-			navTop = navTop + 8 + math.ceil(tag:GetStringHeight() or 12)
-		end
-		navTop = navTop + 14
+		logo:SetText(self.name)
+		f.logo = logo
+		local sub = Text(side, T.fontSmall, T.muted)
+		sub:SetPoint("TOPLEFT", logo, "BOTTOMLEFT", 0, -3)
+		sub:SetWidth(room)
+		sub:SetWordWrap(false)
+		sub:SetText(spec.subtitle or "Settings")
+		f.subtitle = sub
 		f.tagline = spec.tagline
+		if spec.tagline then
+			local hover = CreateFrame("Frame", nil, side)
+			hover:SetPoint("TOPLEFT", 8, -10)
+			hover:SetPoint("RIGHT", -8, 0)
+			hover:SetHeight(48)
+			Tooltip(hover, self.name, spec.tagline)
+		end
+		local headBottom = math.max(18 + 30, 17 + math.ceil(logo:GetStringHeight() or 16) + 3 + 12)
 
+		-- the search box under it
+		local box = self:CreateSearch(f, SIDEBAR_W - 24, side)
+		box:SetPoint("TOPLEFT", f, "TOPLEFT", 13, -(headBottom + 14))
+		local navTop = headBottom + 14 + 26 + 14
+
+		-- the pages
 		f.navButtons = {}
 		for i, id in ipairs(self.order) do
 			local s = self.sections[id]
@@ -2632,111 +3311,174 @@ function App:CreateWindow()
 			b:SetHeight(30)
 			b:SetPoint("TOPLEFT", 8, -navTop - (i - 1) * 32)
 			b:SetPoint("RIGHT", -8, 0)
-			b.bg = U.Solid(b, "BACKGROUND", rgba(T.accentDim))
-			b.bg:SetAllPoints()
+			b.hover = U.Round(b, 5, "BACKGROUND")
+			b.hover:SetAllPoints(b)
+			b.hover:SetVertexColor(T.surfaceHi[1], T.surfaceHi[2], T.surfaceHi[3], 0.6)
+			b.hover:Hide()
+			b.bg = U.Round(b, 5, "BACKGROUND", 1)
+			b.bg:SetAllPoints(b)
+			b.bg:SetVertexColor(rgba(T.accentDim))
 			b.bg:Hide()
 			b.bar = U.Solid(b, "ARTWORK", rgba(T.accent))
-			b.bar:SetWidth(2)
-			b.bar:SetPoint("TOPLEFT")
-			b.bar:SetPoint("BOTTOMLEFT")
+			b.bar:SetSize(3, 16)
+			b.bar:SetPoint("LEFT", 0, 0)
 			b.bar:Hide()
+			b.icon = b:CreateTexture(nil, "ARTWORK")
+			b.icon:SetSize(16, 16)
+			b.icon:SetPoint("LEFT", 10, 0)
+			local hasIcon = UI.SetIcon(b.icon, s.icon or UI.PageIcon(s.title))
+			b.icon:SetVertexColor(rgba(T.muted))
 			b.text = Text(b, T.font, T.muted)
-			b.text:SetPoint("LEFT", 12, 0)
+			b.text:SetPoint("LEFT", hasIcon and 34 or 12, 0)
+			b.text:SetPoint("RIGHT", -6, 0)
+			b.text:SetWordWrap(false)
 			b.text:SetText(s.title)
-			b:SetScript("OnEnter", function(self) if app.current ~= id then self.text:SetTextColor(rgba(T.text)) end end)
-			b:SetScript("OnLeave", function(self) if app.current ~= id then self.text:SetTextColor(rgba(T.muted)) end end)
+			b:SetScript("OnEnter", function(self)
+				if app.current ~= id then self.hover:Show(); self.text:SetTextColor(rgba(T.text)) end
+			end)
+			b:SetScript("OnLeave", function(self)
+				self.hover:Hide()
+				if app.current ~= id then self.text:SetTextColor(rgba(T.muted)) end
+			end)
 			b:SetScript("OnClick", function() app:ShowSection(id) end)
 			f.navButtons[id] = b
 		end
-		-- footer buttons stack up from the bottom of the sidebar
-		for i, d in ipairs(buttons) do
-			local b = footerButton(side, d, SIDEBAR_W - 16)
-			b:SetPoint("BOTTOMLEFT", 8, 12 + (#buttons - i) * 32)
+
+		-- tools at the bottom, over the version line; a line above them
+		local ver = Text(side, T.fontSmall, T.muted)
+		ver:SetPoint("BOTTOMLEFT", 16, 12)
+		ver:SetPoint("RIGHT", -10, 0)
+		ver:SetWordWrap(false)
+		ver:SetText(self:VersionLine())
+		f.versionText = ver
+		tools = self:MakeTools(side)
+		for i, b in ipairs(tools) do
+			b:SetPoint("BOTTOMLEFT", 8, 30 + (#tools - i) * 26)
+			b:SetPoint("RIGHT", side, "RIGHT", -8, 0)
 		end
-		contentLeft, contentTop, contentBottom = SIDEBAR_W + 1 + T.pad + 8, -52, T.pad -- the search box sits above
+		local line = U.Solid(side, "ARTWORK", rgba(T.divider))
+		line:SetHeight(1)
+		line:SetPoint("BOTTOMLEFT", 14, 30 + #tools * 26 + 6)
+		line:SetPoint("RIGHT", side, "RIGHT", -14, 0)
+
+		-- the page header
+		f.pageTitle = Text(f, T.fontHuge, T.text)
+		f.pageTitle:SetPoint("TOPLEFT", CL, -20)
+		f.pageTitle:SetWordWrap(false)
+		f.pageDesc = Text(f, T.fontSmall + 1, T.muted)
+		f.pageDesc:SetPoint("TOPLEFT", f.pageTitle, "BOTTOMLEFT", 0, -6)
+		top = HEADER_H
 	else
-		local title = Text(f, T.fontHuge, T.text)
-		title:SetPoint("TOPLEFT", T.pad, -14)
+		-- one page: icon, name and "v1.0 · /cmd" in a title row, the search box on its right, the tagline under it
+		local icon = self:MakeAppIcon(f, 28)
+		icon:SetPoint("TOPLEFT", 16, -16)
+		f.appIcon = icon
+		local boxW = 200
+		local title = Text(f, T.fontTitle + 2, T.text)
+		title:SetPoint("TOPLEFT", 54, -16)
 		title:SetWordWrap(false)
 		title:SetText(self.name)
-		local ver = Text(f, T.fontSmall, T.muted)
-		ver:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 1)
-		ver:SetText(self:Version())
-		local function width(fs) return fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth() or fs:GetStringWidth() or 0 end
-		titleRight = T.pad + (width(title) or 0) + 8 + (width(ver) or 0)
-		local top = 44
+		f.logo = title
+		local meta = Text(f, T.fontSmall, T.muted)
+		meta:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
+		meta:SetWordWrap(false)
+		meta:SetText(self:VersionLine())
+		f.versionText = meta
+		local nameRoom = W - 54 - 44 - boxW - 16
+		title:SetWidth(math.min(nameRoom, math.ceil(StringWidth(title)) + 2))
+		local box = self:CreateSearch(f, boxW)
+		box:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -15)
+		top = 58
+		f.tagline = spec.tagline
 		if spec.tagline then
 			local tag = Text(f, T.fontSmall + 1, T.muted)
-			tag:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-			tag:SetWidth(W - 2 * T.pad - 30)
+			tag:SetPoint("TOPLEFT", 16, -top)
+			tag:SetWidth(W - 32)
 			tag:SetText(spec.tagline)
-			top = 14 + 22 + 6 + math.ceil(tag:GetStringHeight()) + 10
+			f.taglineText = tag
+			top = top + math.ceil(tag:GetStringHeight() or 12) + 10
 		end
-		f.tagline = spec.tagline
-		local line = U.Solid(f, "ARTWORK", rgba(T.border))
+		local line = U.Solid(f, "ARTWORK", rgba(T.divider))
 		line:SetHeight(1)
 		line:SetPoint("TOPLEFT", 1, -top)
 		line:SetPoint("TOPRIGHT", -1, -top)
-		local bottom = T.pad
-		if #buttons > 0 then
-			local x = T.pad
-			for _, d in ipairs(buttons) do
-				local w = d.width or 150
-				local b = footerButton(f, d, w)
-				-- never narrower than the label ("Feedback / report a bug" needs about 160 px)
-				local tw = b.label.GetUnboundedStringWidth and b.label:GetUnboundedStringWidth() or b.label:GetStringWidth() or 0
-				if tw + 24 > w then w = math.ceil(tw + 24); b:SetWidth(w) end
-				b:SetPoint("BOTTOMLEFT", x, 14)
-				x = x + w + 8
-			end
-			bottom = 52
+		top = top + 14
+	end
+	f.contentLeft, f.headerTop = CL, top
+
+	f.close = CloseButton(f, T)
+
+	content:SetPoint("TOPLEFT", CL, -top)
+	content:SetPoint("BOTTOMRIGHT", -16, FOOTER_H + 8)
+
+	-- the footer bar: profile picker (or the addon's own control) and, in a one-page window, the tools on the
+	-- left; Undo on the right
+	local bar = CreateFrame("Frame", nil, f)
+	bar:SetPoint("BOTTOMLEFT", sidebar and (SIDEBAR_W + 1) or 1, 1)
+	bar:SetPoint("BOTTOMRIGHT", -1, 1)
+	bar:SetHeight(FOOTER_H)
+	local barLine = U.Solid(bar, "ARTWORK", rgba(T.divider))
+	barLine:SetHeight(1)
+	barLine:SetPoint("TOPLEFT", sidebar and 0 or 0, 0)
+	barLine:SetPoint("TOPRIGHT", 0, 0)
+	f.footerBar = bar
+	local undo = UI.Button(bar, "Undo", function() app:Undo() end, 84)
+	undo:SetPoint("RIGHT", bar, "RIGHT", -26, 0)
+	undo:HookScript("OnEnter", function(self)
+		local h = app.history
+		local c = h and h[#h]
+		if not c then return end
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:AddLine("Undo", 1, 1, 1)
+		GameTooltip:AddLine("Puts back " .. (c.label and ('"' .. tostring(c.label) .. '"') or "the last change")
+			.. (#h > 1 and (" (" .. #h .. " changes to undo).") or "."), nil, nil, nil, true)
+		GameTooltip:AddLine("Ctrl+Z", T.muted[1], T.muted[2], T.muted[3])
+		GameTooltip:Show()
+	end)
+	undo:HookScript("OnLeave", function() GameTooltip:Hide() end)
+	undo:SetUsable(false)
+	f.undoButton = undo
+	local x = sidebar and 20 or 15
+	if not sidebar then
+		tools = self:MakeTools(bar)
+		for _, b in ipairs(tools) do
+			b:SetPoint("LEFT", bar, "LEFT", x, 0)
+			x = x + b:FitWidth() + 4
 		end
-		contentLeft, contentTop, contentBottom = T.pad, -top - 14, bottom
+		if #tools > 0 then x = x + 8 end
 	end
+	f.slotLeft = x
+	self:BuildFooterSlot()
 
-	local close = CreateFrame("Button", nil, f)
-	close:SetSize(24, 24)
-	close:SetPoint("TOPRIGHT", -8, -8)
-	local x = Text(close, T.fontTitle, T.muted)
-	x:SetPoint("CENTER")
-	x:SetText("x")
-	close:SetScript("OnEnter", function() x:SetTextColor(rgba(T.text)) end)
-	close:SetScript("OnLeave", function() x:SetTextColor(rgba(T.muted)) end)
-	close:SetScript("OnClick", function() f:Hide() end)
-	f.close = close
-
-	local content = CreateFrame("Frame", nil, f)
-	content:SetPoint("TOPLEFT", contentLeft, contentTop)
-	content:SetPoint("BOTTOMRIGHT", -T.pad, contentBottom)
-	f.content = content
-	f.contentWidth = W - contentLeft - T.pad
-
-	-- the search box, top centre: over the page column, or in the title row of a one-page window;
-	-- the AI help button (a plain one) just right of it, when the addon has settings
-	local aiW = #self.settingOrder > 0 and AI_BUTTON_W or nil
-	local box
-	if sidebar then
-		local boxW = math.min(300, W - SIDEBAR_W - 120 - (aiW and aiW + 8 or 0))
-		box = self:CreateSearch(f, boxW)
-		box:SetPoint("TOP", f, "TOPLEFT", SIDEBAR_W + 1 + (W - SIDEBAR_W - 1) / 2, -12)
-	else
-		local boxW, right = 240, W - 44 - (aiW and aiW + 8 or 0) -- clear of the close button
-		local left = math.floor((W - boxW) / 2)
-		if left < titleRight + 16 then left = math.ceil(titleRight + 16) end
-		if left + boxW > right then boxW = math.max(140, right - left) end
-		box = self:CreateSearch(f, boxW)
-		box:SetPoint("TOPLEFT", f, "TOPLEFT", left, -10)
+	-- resize grip, bottom right corner
+	local grip = CreateFrame("Button", nil, f)
+	grip:SetSize(16, 16)
+	grip:SetPoint("BOTTOMRIGHT", -3, 3)
+	for i = 0, 2 do
+		for j = 0, i do
+			local d = U.Solid(grip, "ARTWORK", T.muted[1], T.muted[2], T.muted[3], 0.5)
+			d:SetSize(2, 2)
+			d:SetPoint("BOTTOMRIGHT", -(2 + j * 4), 2 + (i - j) * 4)
+		end
 	end
-	if aiW then
-		local ai = UI.Button(f, "AI help", function() app:ShowAiHelp() end, aiW)
-		ai:SetPoint("LEFT", box, "RIGHT", 8, 0)
-		Tooltip(ai, "Get help from AI to configure this addon",
-			"Copies a description of every setting. Paste it into Claude or another AI with what you want; then paste its answer into "
-			.. self.slash .. " apply.")
-		f.aiButton = ai
+	grip:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then f:StartSizing("BOTTOMRIGHT") end end)
+	grip:SetScript("OnMouseUp", function()
+		f:StopMovingOrSizing()
+		SavePosition(app, f)
+	end)
+	f.resizeGrip = grip
+	f:SetScript("OnSizeChanged", function(_, w) app:OnWindowSized(w) end)
+
+	-- Ctrl+Z is Undo (Ctrl+F, set by CreateSearch, focuses the search box)
+	local searchKey = f.eluiKey
+	f.eluiKey = function(self, key)
+		if key == "Z" and IsControlKeyDown() then app:Undo() return true end
+		return searchKey and searchKey(self, key)
 	end
 
 	f:SetScript("OnShow", function()
+		app.history = nil
+		app:RefreshUndo()
 		app:RefreshButtons()
 		if spec.onShow then spec.onShow(app) end
 		app:WarmSearch()
@@ -2745,11 +3487,227 @@ function App:CreateWindow()
 		ClosePopup()
 		f.searchBox:ClearFocus()
 		app:StopSearch()
+		app.history = nil -- Undo covers one visit of the window
 		if spec.onHide then spec.onHide(app) end
 	end)
 	UI.CloseOnEscape(f)
-	self.window = f
 	return f
+end
+
+-- The window was resized: pages, results and the page header take the new width.
+function App:OnWindowSized(w)
+	local f = self.window
+	if not f or not w or not f.contentLeft then return end
+	local cw = math.floor(w - f.contentLeft - 16 + 0.5)
+	if cw == f.contentWidth then return end
+	f.contentWidth = cw
+	for _, s in pairs(self.sections) do
+		if s.stack then s.stack:SetWidth(cw - 24) end
+	end
+	if f.results then f.results.child:SetWidth(cw - 24) end
+	if self.searching and self.searchQuery then self:Search(self.searchQuery) end
+	self:UpdatePageHeader()
+end
+
+------------------------------------------------------------------------
+-- Footer bar: profiles (or any control the addon puts there) on the left
+------------------------------------------------------------------------
+-- app:Profiles(def): a profile picker in the footer bar. def = { label = "Profile", items = { { value, text } } or
+-- fn() -> items, get = fn() -> value, set = fn(value), after = fn() }. Switching profiles changes every setting at
+-- once, so it clears Undo and redraws the pages.
+function App:Profiles(def)
+	assert(type(def) == "table" and def.get and def.set and def.items, "Profiles needs items, get and set")
+	self.profiles = def
+	if self.window then self:BuildFooterSlot() end
+	return def
+end
+
+-- app:FooterSlot(function(bar, app) return frame end): the addon's own control on the left of the footer bar.
+function App:FooterSlot(fn)
+	self.footerSlotFn = fn
+	if self.window then self:BuildFooterSlot() end
+end
+
+function App:BuildFooterSlot()
+	local f, T, app = self.window, self.T, self
+	if not f or not f.footerBar then return end
+	if f.footerSlot then f.footerSlot:Hide() end
+	f.footerSlot = nil
+	local bar = f.footerBar
+	local slot
+	if self.profiles then
+		local def = self.profiles
+		slot = CreateFrame("Frame", nil, bar)
+		slot:SetSize(260, 26)
+		local label = Text(slot, T.font, T.muted)
+		label:SetPoint("LEFT")
+		label:SetWordWrap(false)
+		label:SetText(def.label or "Profile")
+		local lw = math.ceil(StringWidth(label)) + 10
+		local b, value = DropButton(slot, T, 170)
+		b:SetPoint("LEFT", lw, 0)
+		slot:SetWidth(lw + 170)
+		local function items() if type(def.items) == "function" then return def.items() or {} end return def.items end
+		function slot:Refresh()
+			local cur = def.get()
+			local shown = tostring(cur or "")
+			for _, it in ipairs(items()) do if it.value == cur then shown = it.text break end end
+			value:SetText(shown)
+		end
+		b:SetScript("OnClick", function()
+			OpenPopup(b, items(), def.get(), function(v)
+				def.set(v)
+				if def.after then def.after(v) end
+				app.history = nil
+				app:RefreshUndo()
+				for _, s in pairs(app.sections) do if s.stack then s.stack:RefreshAll() end end
+				app:Refresh()
+			end, { width = 200 })
+		end)
+		Tooltip(b, def.label or "Profile", def.desc)
+		slot.button = b
+	elseif self.footerSlotFn then
+		local ok, frame = pcall(self.footerSlotFn, bar, self)
+		if ok and frame then slot = frame
+		elseif not ok then local h = geterrorhandler and geterrorhandler(); if h then h(frame) end end
+	end
+	if not slot then return end
+	slot:SetParent(bar)
+	slot:ClearAllPoints()
+	slot:SetPoint("LEFT", bar, "LEFT", f.slotLeft or 20, 0)
+	slot:Show()
+	if slot.Refresh then slot:Refresh() end
+	f.footerSlot = slot
+end
+
+------------------------------------------------------------------------
+-- Live preview (EverlookUI 7): a small frame at the top right of a page that shows what the settings do.
+-- app:Preview(sectionId or "*", { width = 240, height = 60, build = fn(frame, app), refresh = fn(frame, app) })
+-- "*" is every page without its own. The frame (a card) is built when its page first shows; refresh runs when it
+-- shows, after every change made in the window (and Undo) and on app:Refresh().
+------------------------------------------------------------------------
+function App:Preview(id, def)
+	assert(type(def) == "table" and (def.build or def.refresh), "Preview needs build or refresh")
+	self.previews = self.previews or {}
+	self.previews[id or "*"] = def
+	if self.window and self:IsShown() then self:UpdatePageHeader() end
+	return def
+end
+
+function App:PreviewFor(id)
+	local p = self.previews
+	return p and id and (p[id] or p["*"]) or nil
+end
+
+local function report(err) local h = geterrorhandler and geterrorhandler(); if h then h(err) end end
+
+function App:RefreshPreview()
+	local def = self.window and self:PreviewFor(self.current)
+	if not (def and def.frame and def.refresh and def.frame:IsShown()) then return end
+	local ok, err = pcall(def.refresh, def.frame, self)
+	if not ok then report(err) end
+end
+
+-- The page title, description and preview for the page shown; the page area starts under them.
+function App:UpdatePageHeader()
+	local f, T = self.window, self.T
+	if not f or not f.pageTitle then return end
+	local s = self.current and self.sections[self.current]
+	for _, d in pairs(self.previews or {}) do if d.frame then d.frame:Hide() end end
+	local def = s and self:PreviewFor(s.id)
+	local pw, ph = 0, 0
+	if def then
+		if not def.frame then
+			local holder = CreateFrame("Frame", nil, f)
+			holder.eluiTheme = T
+			holder:SetSize(def.width or 240, def.height or 56)
+			holder.bg, holder.edge = U.RoundBox(holder, T.radius, T.card, T.border)
+			def.frame = holder
+			if def.build then
+				local ok, err = pcall(def.build, holder, self)
+				if not ok then report(err) end
+			end
+		end
+		pw, ph = def.frame:GetWidth() or 0, def.frame:GetHeight() or 0
+		def.frame:ClearAllPoints()
+		def.frame:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -14)
+		def.frame:Show()
+		self:RefreshPreview()
+	end
+	local textW = f.contentWidth - (def and (pw + 44 - 16 + 12) or 32)
+	f.pageTitle:SetWidth(math.max(120, textW))
+	f.pageDesc:SetWidth(math.max(120, textW))
+	f.pageTitle:SetText(s and s.title or "")
+	f.pageDesc:SetText(s and s.desc or "")
+	f.pageDesc:SetShown(s ~= nil and s.desc ~= nil and s.desc ~= "")
+	local textH = 20 + 22 + ((s and s.desc and s.desc ~= "") and (6 + math.ceil(f.pageDesc:GetStringHeight() or 12)) or 0) + 14
+	local top = math.max(HEADER_H, textH, ph > 0 and (14 + ph + 14) or 0)
+	if top ~= f.headerTop then
+		f.headerTop = top
+		f.content:ClearAllPoints()
+		f.content:SetPoint("TOPLEFT", f, "TOPLEFT", f.contentLeft, -top)
+		f.content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -16, FOOTER_H + 8)
+	end
+end
+
+------------------------------------------------------------------------
+-- Undo (EverlookUI 7): each change made with a control in the window is remembered until the window closes; the
+-- footer's Undo (or Ctrl+Z) puts the last one back through the same get/set. Changes to one control in a row (a
+-- slider drag) count as one; changing it back to where it started drops it. Chat commands aren't recorded.
+------------------------------------------------------------------------
+local function SameValue(a, b)
+	if type(a) == "table" and type(b) == "table" then
+		for k, v in pairs(a) do if b[k] ~= v then return false end end
+		for k, v in pairs(b) do if a[k] ~= v then return false end end
+		return true
+	end
+	return a == b
+end
+UI.SameValue = SameValue
+
+-- c = { id, label, get, set, after, before }
+function App:RecordChange(c)
+	if self.undoing then return end
+	self.history = self.history or {}
+	local h = self.history
+	local last = h[#h]
+	local now
+	if c.get then now = c.get() end
+	if last and last.id == c.id then
+		if c.get and SameValue(now, last.before) then table.remove(h) end -- back where it started
+	elseif not (c.get and SameValue(now, c.before)) then
+		c.before = U.CopyTable(c.before)
+		h[#h + 1] = c
+		if #h > 200 then table.remove(h, 1) end
+	end
+	self:RefreshUndo()
+	self:RefreshPreview()
+end
+
+function App:CanUndo() return self.history ~= nil and #self.history > 0 end
+
+-- Puts the last change back; returns it, or nil when there was nothing to undo.
+function App:Undo()
+	local h = self.history
+	local c = h and table.remove(h)
+	if not c then return nil end
+	self.undoing = true
+	local ok, err = pcall(c.set, U.CopyTable(c.before))
+	if ok and c.after then ok, err = pcall(c.after) end
+	self.undoing = nil
+	if not ok then report(err) end
+	if self.searching then self:RefreshBorrowed() end
+	local s = self.current and self.sections[self.current]
+	if s and s.stack then s.stack:RefreshAll() end
+	self:RefreshButtons()
+	self:RefreshUndo()
+	self:RefreshPreview()
+	return c
+end
+
+function App:RefreshUndo()
+	local b = self.window and self.window.undoButton
+	if b then b:SetUsable(self:CanUndo()) end
 end
 
 function App:RefreshButtons()
@@ -2757,6 +3715,20 @@ function App:RefreshButtons()
 	if not f then return end
 	for _, b in ipairs(f.footer) do
 		if b.def.text then b:SetText(b.def.text(self)) end
+	end
+	if f.footerSlot and f.footerSlot.Refresh then f.footerSlot:Refresh() end
+end
+
+-- The sidebar rows: the page shown lit (accent tint, bar, white text, accent icon), the others muted.
+function App:PaintNav()
+	local f = self.window
+	if not f or not f.navButtons then return end
+	for sid, b in pairs(f.navButtons) do
+		local active = sid == self.current
+		b.bg:SetShown(active)
+		b.bar:SetShown(active)
+		b.text:SetTextColor(rgba(active and self.T.text or self.T.muted))
+		b.icon:SetVertexColor(rgba(active and self.T.accent or self.T.muted))
 	end
 end
 
@@ -2769,20 +3741,15 @@ function App:ShowSection(id)
 	if self.searching then self:StopSearch() end -- a page picked in the sidebar ends the search
 	for sid, other in pairs(self.sections) do
 		if other.scroll then other.scroll:SetShown(sid == id) end
-		local b = f.navButtons and f.navButtons[sid]
-		if b then
-			local active = sid == id
-			b.bg:SetShown(active)
-			b.bar:SetShown(active)
-			b.text:SetTextColor(rgba(active and self.T.text or self.T.muted))
-		end
 	end
 	self.current = id
+	self:PaintNav()
 	if not s.scroll then
 		self:BuildSection(id)
 	else
 		s.stack:RefreshAll()
 	end
+	self:UpdatePageHeader()
 	s.scroll:Show()
 end
 
@@ -2803,6 +3770,7 @@ end
 function App:Refresh()
 	if not self.window then return end
 	self:RefreshButtons()
+	self:RefreshPreview()
 	if self.searching then self:RefreshBorrowed() return end
 	local s = self.current and self.sections[self.current]
 	if s and s.stack then s.stack:RefreshAll() end
@@ -3255,8 +4223,7 @@ local function Dialog(app, suffix, W, H, title, intro, onShow)
 	f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
 	f:Hide()
 	f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
-	U.Solid(f, "BACKGROUND", rgba(T.bg)):SetAllPoints()
-	U.Border(f, 1, rgba(T.border))
+	WindowChrome(f, T)
 	local t = Text(f, T.fontHuge, T.text)
 	t:SetPoint("TOPLEFT", T.pad, -14)
 	t:SetPoint("RIGHT", f, "RIGHT", -44, 0)
@@ -3268,16 +4235,7 @@ local function Dialog(app, suffix, W, H, title, intro, onShow)
 	sub:SetText(intro)
 	f.title, f.intro = t, sub
 	f.top = 14 + 22 + 8 + math.ceil(sub:GetStringHeight() or 12) + 14
-	local close = CreateFrame("Button", nil, f)
-	close:SetSize(24, 24)
-	close:SetPoint("TOPRIGHT", -8, -8)
-	local x = Text(close, T.fontTitle, T.muted)
-	x:SetPoint("CENTER")
-	x:SetText("x")
-	close:SetScript("OnEnter", function() x:SetTextColor(rgba(T.text)) end)
-	close:SetScript("OnLeave", function() x:SetTextColor(rgba(T.muted)) end)
-	close:SetScript("OnClick", function() f:Hide() end)
-	f.close = close
+	f.close = CloseButton(f, T)
 	f:SetScript("OnShow", function(self)
 		-- over the settings window it was opened from (same strata): above its deepest controls
 		local w = app.window
