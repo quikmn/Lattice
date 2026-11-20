@@ -1,6 +1,6 @@
 # Lattice Party & Raid Frames
 
-## Unreleased
+## v0.7.2 (2026-11-20)
 - Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
 
 ## v0.7.1 (2026-11-18)
