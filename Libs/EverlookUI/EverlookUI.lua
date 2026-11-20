@@ -35,7 +35,7 @@
 -- AI help (EverlookUI 5): an "AI help" link in the window and "/x ai" copy a description of every setting
 -- for an AI assistant; "/x apply" takes its answer back (see "AI help" below and COMMANDS.md).
 local LIB_ADDON = ... -- the folder of the addon whose copy this is (its Media\ sits next to this file)
-local MAJOR, MINOR = "EverlookUI-1", 7
+local MAJOR, MINOR = "EverlookUI-1", 8
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
@@ -57,6 +57,7 @@ UI.Theme = {
 	gold      = { 0.961, 0.776, 0.341, 1 },   -- section headings
 	accent    = { 0.353, 0.663, 1.000, 1 },   -- #5aa9ff (Lattice blue)
 	accentDim = { 0.353, 0.663, 1.000, 0.16 },
+	accentFill = { 0.288, 0.508, 0.752, 1 },   -- the accent for filled areas (switches, buttons, slider fill): softer
 	danger    = { 0.937, 0.365, 0.365, 1 },
 	ok        = { 0.384, 0.812, 0.533, 1 },
 	onAccent  = { 0.05, 0.07, 0.1, 1 },        -- text and knobs drawn on the accent colour
@@ -79,6 +80,10 @@ function UI.MakeTheme(accent)
 		T.accent = { accent[1], accent[2], accent[3], 1 }
 		T.accentDim = { accent[1], accent[2], accent[3], 0.16 }
 	end
+	-- filled areas use the accent 30% of the way to the button colour, so a bright accent (EverlookDB gold) isn't
+	-- glaring on switches and buttons; lines, text and icons keep the accent itself (EverlookUI 8)
+	local a, sf = T.accent, T.surface
+	T.accentFill = { a[1] * 0.7 + sf[1] * 0.3, a[2] * 0.7 + sf[2] * 0.3, a[3] * 0.7 + sf[3] * 0.3, 1 }
 	return T
 end
 
@@ -856,18 +861,18 @@ function UI.Button(parent, label, onClick, width, style)
 	local b = CreateFrame("Button", nil, parent)
 	b:SetSize(width or 120, 26)
 	local accent, danger = style == "accent", style == "danger"
-	b.bg, b.border = U.RoundBox(b, 4, accent and T.accent or T.surface, (accent and T.accent) or (danger and T.danger) or T.border)
-	if accent then b.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.88) end
+	local fill = T.accentFill or T.accent
+	b.bg, b.border = U.RoundBox(b, 4, accent and fill or T.surface, (accent and fill) or (danger and T.danger) or T.border)
 	b.label = Text(b, T.font, accent and T.onAccent or (danger and T.danger or T.text))
 	b.label:SetPoint("CENTER")
 	b.label:SetJustifyH("CENTER")
 	b.label:SetWordWrap(false)
 	b.label:SetText(label)
 	b:SetScript("OnEnter", function(self)
-		if accent then self.bg:SetVertexColor(rgba(T.accent)) else self.bg:SetVertexColor(rgba(T.surfaceHi)) end
+		if accent then self.bg:SetVertexColor(rgba(T.accent)); self.border:SetColor(rgba(T.accent)) else self.bg:SetVertexColor(rgba(T.surfaceHi)) end
 	end)
 	b:SetScript("OnLeave", function(self)
-		if accent then self.bg:SetVertexColor(T.accent[1], T.accent[2], T.accent[3], 0.88) else self.bg:SetVertexColor(rgba(T.surface)) end
+		if accent then self.bg:SetVertexColor(rgba(fill)); self.border:SetColor(rgba(fill)) else self.bg:SetVertexColor(rgba(T.surface)) end
 	end)
 	b:SetScript("OnClick", function(self, ...) if onClick then onClick(self, ...) end end)
 	function b:SetText(t) self.label:SetText(t) end
@@ -958,8 +963,9 @@ local function Switch(parent, T)
 		knob:ClearAllPoints()
 		if on then
 			knob:SetPoint("RIGHT", track, "RIGHT", -3, 0)
-			knob:SetVertexColor(rgba(T.text))
-			track.bg:SetVertexColor(rgba(T.accent))
+			-- a dark knob on the softened accent: a white one was lost on gold (EverlookUI 8)
+			knob:SetVertexColor(rgba(T.onAccent))
+			track.bg:SetVertexColor(rgba(T.accentFill or T.accent))
 		else
 			knob:SetPoint("LEFT", track, "LEFT", 3, 0)
 			knob:SetVertexColor(rgba(T.muted))
@@ -1032,7 +1038,7 @@ function UI.Slider(stack, opt)
 	local fill = U.Round(slider, 2, "ARTWORK")
 	fill:SetHeight(4)
 	fill:SetPoint("LEFT")
-	fill:SetVertexColor(rgba(T.accent))
+	fill:SetVertexColor(rgba(T.accentFill or T.accent))
 	local thumb = slider:CreateTexture(nil, "OVERLAY")
 	thumb:SetTexture(UI.media and (UI.media .. "Round") or U.WHITE)
 	thumb:SetVertexColor(rgba(T.text))
