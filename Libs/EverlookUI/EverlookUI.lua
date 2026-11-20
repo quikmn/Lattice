@@ -35,7 +35,7 @@
 -- AI help (EverlookUI 5): an "AI help" link in the window and "/x ai" copy a description of every setting
 -- for an AI assistant; "/x apply" takes its answer back (see "AI help" below and COMMANDS.md).
 local LIB_ADDON = ... -- the folder of the addon whose copy this is (its Media\ sits next to this file)
-local MAJOR, MINOR = "EverlookUI-1", 8
+local MAJOR, MINOR = "EverlookUI-1", 9
 local UI = LibStub:NewLibrary(MAJOR, MINOR)
 if not UI then return end
 UI.version = MINOR
@@ -258,6 +258,49 @@ function Round:Show() self:SetShown(true) end
 function Round:Hide() self:SetShown(false) end
 function Round:IsShown() return self.shown end
 UI.Round = Round
+
+-- The 1 px outline of a rounded box, on its own (EverlookUI 9): four ring corners (Media\Ring<r>.tga) and four 1 px
+-- sides, so a see-through fill shows what is behind it, not a border colour. Anchor and colour it like U.Round. The
+-- radius is the nearest of 4, 6 and 8 (the ring textures); without the media the corners are square.
+local RING_SIZES = { 4, 6, 8 }
+function U.RoundOutline(parent, radius, layer, sublevel)
+	local r = RING_SIZES[1]
+	for _, n in ipairs(RING_SIZES) do if math.abs(n - (radius or 4)) < math.abs(r - (radius or 4)) then r = n end end
+	local o = setmetatable({ parts = {}, r = r, shown = true }, Round)
+	layer, sublevel = layer or "BORDER", sublevel or 0
+	local box = parent:CreateTexture(nil, layer, nil, sublevel)
+	box:SetTexture(U.WHITE)
+	box:SetAlpha(0)
+	o.box = box
+	local ring = UI.media and (UI.media .. "Ring" .. r) or nil
+	local function part(tex)
+		local t = parent:CreateTexture(nil, layer, nil, sublevel)
+		t:SetTexture(tex or U.WHITE)
+		o.parts[#o.parts + 1] = t
+		return t
+	end
+	local c = ring and r or 0
+	local function side(p1, x1, y1, p2, x2, y2, horizontal)
+		local t = part()
+		t:SetPoint(p1, box, p1, x1, y1)
+		t:SetPoint(p2, box, p2, x2, y2)
+		if horizontal then t:SetHeight(1) else t:SetWidth(1) end
+	end
+	side("TOPLEFT", c, 0, "TOPRIGHT", -c, 0, true)
+	side("BOTTOMLEFT", c, 0, "BOTTOMRIGHT", -c, 0, true)
+	side("TOPLEFT", 0, -c, "BOTTOMLEFT", 0, c, false)
+	side("TOPRIGHT", 0, -c, "BOTTOMRIGHT", 0, c, false)
+	if ring then
+		for _, key in ipairs({ "tl", "tr", "bl", "br" }) do
+			local k = ROUND_CORNERS[key]
+			local t = part(ring)
+			t:SetSize(r, r)
+			t:SetPoint(k[1], box, k[1], 0, 0)
+			t:SetTexCoord(k[2], k[3], k[4], k[5])
+		end
+	end
+	return o
+end
 
 -- A rounded box filled with `fill` inside a 1 px `border` of the same shape (a second box 1 px larger behind it),
 -- covering `holder`. Returns fill, edge (both Round objects).
