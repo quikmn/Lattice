@@ -1,5 +1,8 @@
 # Lattice Party & Raid Frames
 
+## Unreleased
+- Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
+
 ## v0.7.1 (2026-11-18)
 
 - Settings: an AI help button copies a description of every setting for an AI assistant, and `/lattice apply` runs the commands it gives back.
