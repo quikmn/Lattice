@@ -5,3 +5,4 @@ ignore:
   - README.md
   - tests
   - .github
+  - curseforge
