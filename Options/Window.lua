@@ -85,7 +85,13 @@ local function CreateWindow()
 		f.navButtons[id] = b
 	end
 
-	-- Footer actions in the sidebar
+	-- Footer actions in the sidebar (plain buttons: a page's one gold button is its own)
+	local ai = W.Button(side, "AI help", function() ns.app:ShowAiHelp() end, SIDEBAR_W - 16)
+	ai:SetPoint("BOTTOMLEFT", 8, 108)
+	W.Tooltip(ai, "Get help from AI to set up Lattice",
+		"Copies a description of every setting. Paste it into Claude or another AI and say what you want, then paste its answer into /lattice apply. You see every change before it is made.")
+	f.aiButton = ai
+
 	local feedback = W.Button(side, "Feedback / report a bug", function() ns.ShowFeedback() end, SIDEBAR_W - 16)
 	feedback:SetPoint("BOTTOMLEFT", 8, 76)
 
@@ -213,8 +219,10 @@ end
 
 -- Binding helper: Options.Bind("appearance.nameSize", "appearance", { label = ..., ... })
 -- Values are always read from the *current* profile (ns.db can change on profile switch).
+-- The path is the setting's key for chat and AI help (opt.key), unless opt.key names another.
 function Options.Bind(path, scope, opt)
 	opt = opt or {}
+	opt.key = opt.key or path
 	opt.get = function() return U.Get(ns.db, path) end
 	opt.set = function(v)
 		U.Set(ns.db, path, v)
@@ -562,6 +570,15 @@ end
 
 function Options:IsShown()
 	return window and window:IsShown()
+end
+
+-- Every page built (hidden), the window made if it wasn't: what AI help and chat read the settings from.
+-- Returns the search entries of every page (the controls with their page and heading).
+function Options:AllEntries()
+	if not Search then return {} end
+	if not window then window = CreateWindow() end
+	self:EnsureSearchIndex()
+	return self:SearchEntries()
 end
 
 -- /lattice search <words>: the window with its search box filled (empty: the box gets the focus).

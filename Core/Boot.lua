@@ -161,9 +161,17 @@ local EUI = LibStub and LibStub("EverlookUI-1", true)
 local app = EUI:NewApp({
 	name = "Lattice", addon = ADDON, slash = "/lattice", aliases = { "/lat" },
 	tagline = "Party and raid frames. Ctrl+Alt+Right-click a frame: tank choice and aura picker.",
+	aiAbout = "Lattice draws party and raid frames for WoW Forever: health, power, auras and dispel highlights, click-casting "
+		.. "and hover-casting, tank frames and profiles. Its settings window opens with /lattice; every setting below can also be "
+		.. "changed with a chat command.",
+	siteURL = "https://everlookdb.com/lattice.html", feedbackURL = ns.FEEDBACK_URL,
 	accent = { 0.353, 0.663, 1.0 }, settingsPanel = false,
 })
 ns.app = app
+-- AI help and chat know the settings window's settings (Options/AIHelp.lua); changes made in combat wait for it to end.
+app:ProvideSettings(function() return ns.AIHelp.Settings() end, { combat = "queue" })
+app:AiExtra(function() return ns.AIHelp.Extra() end)
+function app:Refresh() if ns.Options:IsShown() then ns.Options:RefreshCurrent() end end
 function app:Toggle() ns.Options:Toggle() end
 function app:Open() ns.Options:Open() end
 function app:Close() if ns.Options:IsShown() then ns.Options:Toggle() end end

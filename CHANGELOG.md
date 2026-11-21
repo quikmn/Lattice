@@ -10,6 +10,9 @@
 - Aura filters: one highlighted button (Always show); Add from text is a plain button. The dispel highlight's "How" is now "Frame color style".
 - Fix: if one change waiting for combat to end failed, the changes queued after it were skipped until the next fight.
 - An old "Lattice" folder that is turned off at login no longer reacts to game events for the rest of the session.
+- Hover-casting: new keys now cast on you when nobody fitting is under the mouse and you have no fitting target (friendly spells only). A new switch on the Hover-casting page, "New keys cast on me when nobody else fits", sets where a new key's "cast on me" starts. If you used Lattice before, it stays off for you, and the keys you already have don't change.
+- AI help works now: the AI help button in the settings window (or `/lattice ai`) copies a description of every setting for Claude or another AI, and `/lattice apply` takes its answer, shows every change first and only changes Lattice's settings. Anything else in the answer is skipped and shown in red. Changes made in combat wait until the fight is over.
+- Settings can be changed from chat too: `/lattice layouts.raid.width 90`; `/lattice get` lists them all.
 
 ## v0.7.2 (2026-11-20)
 - Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.

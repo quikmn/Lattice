@@ -11,7 +11,7 @@ O:RegisterPage("general", "General", nil, function(s)
 		desc = "Turn off to hide all Lattice party and raid frames.",
 	}))
 	W.Toggle(s, {
-		label = "Hide Blizzard's party and raid frames", keywords = { "default frames", "compact", "blizzard" },
+		label = "Hide Blizzard's party and raid frames", key = "general.hideBlizzard", keywords = { "default frames", "compact", "blizzard" },
 		desc = "Turning this off brings Blizzard's frames back after a /reload.",
 		get = function() return ns.db.general.hideBlizzard end,
 		set = function(v)
@@ -50,7 +50,7 @@ O:RegisterPage("general", "General", nil, function(s)
 
 	W.Header(s, "Tanks", "Most groups here have no roles set, so Lattice guesses the tank.")
 	W.Toggle(s, {
-		label = "Guess the tank when no roles are set",
+		label = "Guess the tank when no roles are set", key = "general.guessTank",
 		desc = "Uses the raid's main tank mark, Defensive Stance, Bear Form and Righteous Fury. In a group of five it picks one player, or the only Warrior.",
 		get = function() return ns.db.general.guessTank end,
 		set = function(v) ns.db.general.guessTank = v; ns.Roles:Update() end,

@@ -5,9 +5,13 @@ local Bind = O.Bind
 local editing = "party"
 local PREVIEW_SIZE = { party = 5, raid = 20, raid40 = 40 }
 
--- Bind to the layout currently being edited.
-local function L(key, opt)
+local ALL, RAIDS, PARTY = { "party", "raid", "raid40" }, { "raid", "raid40" }, { "party" }
+
+-- Bind to the layout currently being edited. For chat and AI help the setting is one per layout it applies to
+-- (layouts.party.width, layouts.raid.width, ...): opt.layoutKey, opt.layouts and opt.layoutDisabled(name).
+local function L(key, opt, layouts, disabledFor)
 	opt = opt or {}
+	opt.layoutKey, opt.layouts, opt.layoutDisabled = key, layouts or ALL, disabledFor
 	opt.get = function() return ns.db.layouts[editing][key] end
 	opt.set = function(v)
 		ns.db.layouts[editing][key] = v
@@ -67,14 +71,16 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 	local function notGrid() return notRaid() or ns.db.layouts[editing].mode ~= "combined" end
 
 	W.Header(s, "Party", "Only used by the Party layout.")
-	W.Toggle(s, L("showPlayer", { label = "Show myself in the party frames", disabled = notParty }))
-	W.Toggle(s, L("showSolo", { label = "Show my frame when I'm not in a group", disabled = notParty }))
+	local function modeIsNot(mode) return function(name) return ns.db.layouts[name].mode ~= mode end end
+
+	W.Toggle(s, L("showPlayer", { label = "Show myself in the party frames", disabled = notParty }, PARTY))
+	W.Toggle(s, L("showSolo", { label = "Show my frame when I'm not in a group", disabled = notParty }, PARTY))
 	W.Dropdown(s, L("groupBy", {
 		label = "Order the party by",
 		desc = "Tank, healer, damage uses assigned roles; guessed tanks keep their place but get the tank icon.",
 		items = { { value = "NONE", text = "Group order" }, { value = "ROLE", text = "Tank, healer, damage" }, { value = "CLASS", text = "Class" } },
 		disabled = notParty,
-	}))
+	}, PARTY))
 
 	W.Header(s, "Raid", "Only used by the Raid and Large raid layouts.")
 	W.Dropdown(s, L("mode", {
@@ -82,25 +88,25 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		items = { { value = "groups", text = "One column per raid group" }, { value = "combined", text = "All players in one grid" } },
 		width = 300,
 		disabled = notRaid,
-	}))
-	W.Slider(s, L("groupSpacing", { label = "Gap between groups", keywords = { "spacing", "padding" }, min = 0, max = 40, step = 1, disabled = notRaid }))
-	W.Slider(s, L("groupsPerLine", { label = "Groups per row before wrapping", min = 1, max = 8, step = 1, disabled = notGroups }))
-	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups", disabled = notGroups }))
+	}, RAIDS))
+	W.Slider(s, L("groupSpacing", { label = "Gap between groups", keywords = { "spacing", "padding" }, min = 0, max = 40, step = 1, disabled = notRaid }, RAIDS))
+	W.Slider(s, L("groupsPerLine", { label = "Groups per row before wrapping", min = 1, max = 8, step = 1, disabled = notGroups }, RAIDS, modeIsNot("groups")))
+	W.Toggle(s, L("collapseEmptyGroups", { label = "Close gaps left by empty groups", disabled = notGroups }, RAIDS, modeIsNot("groups")))
 	W.Dropdown(s, L("innerSort", {
 		label = "Order inside each group",
 		desc = "Tank, healer, damage uses assigned roles (most groups here have none, so Class is the useful one).",
 		items = { { value = "NONE", text = "Group order" }, { value = "CLASS", text = "Class" }, { value = "ROLE", text = "Tank, healer, damage" } },
 		disabled = notGroups,
-	}))
-	W.Slider(s, L("unitsPerColumn", { label = "Players per column (one grid)", keywords = { "rows", "columns", "wrap" }, min = 1, max = 40, step = 1, disabled = notGrid }))
+	}, RAIDS, modeIsNot("groups")))
+	W.Slider(s, L("unitsPerColumn", { label = "Players per column (one grid)", keywords = { "rows", "columns", "wrap" }, min = 1, max = 40, step = 1, disabled = notGrid }, RAIDS, modeIsNot("combined")))
 	W.Dropdown(s, L("groupBy", {
 		label = "Group the grid by",
 		items = { { value = "NONE", text = "Nothing" }, { value = "GROUP", text = "Raid group" }, { value = "ROLE", text = "Tank, healer, damage" }, { value = "CLASS", text = "Class" } },
 		disabled = notGrid,
-	}))
+	}, RAIDS, modeIsNot("combined")))
 
 	W.Header(s, "Pets")
-	W.Toggle(s, { label = "Show pet frames (hunter, warlock and other pets)",
+	W.Toggle(s, { label = "Show pet frames (hunter, warlock and other pets)", key = "general.showPets",
 		desc = "Pets get their own block. Unlock frames to move it.",
 		get = function() return ns.db.general.showPets end,
 		set = function(v) ns.db.general.showPets = v; ns:ApplySettings("layout") end })

@@ -802,7 +802,7 @@ step("chat commands follow the shared EverlookDB pattern", function()
 	check(logText():find("Lattice", 1, true), "version: " .. logText())
 	MOCK.log = {}
 	SlashCmdList.LATTICE("get")
-	check(logText():find("no settings to change from chat", 1, true), "get: " .. logText())
+	check(logText():find("general.enabled|r = on", 1, true), "get lists the window's settings: " .. logText())
 	SlashCmdList.LATTICE("search Range")
 	check(LatticeOptionsWindow:IsShown() and LatticeOptionsWindow.searchBox:GetText() == "range", "search: " .. tostring(LatticeOptionsWindow.searchBox:GetText()))
 	ns.Options:StopSearch()
@@ -1015,6 +1015,160 @@ step("one failing out-of-combat job doesn't drop the others", function()
 	check(ran, "the job after a failing one never ran")
 	check(#MOCK.errors == before + 1, "the failure wasn't reported")
 	table.remove(MOCK.errors)
+end)
+
+step("hover-casting: \"cast on me\" is on for new keys in a fresh profile, off in profiles saved before", function()
+	-- this run started with no saved variables: a new install
+	check(ns.db.general.hoverCastSelf == true, "fresh profile: expected on, got " .. tostring(ns.db.general.hoverCastSelf))
+	check(LatticeDB.schema == ns.Database.SCHEMA, "a new install should start at the newest schema")
+	-- saved before the change (schema 3): every profile without the key gets an explicit off
+	local sv = { schema = 3, profiles = {
+		Default = {},
+		Healer = { general = { rangeFade = false } },
+		On = { general = { hoverCastSelf = true } },
+		Off = { general = { hoverCastSelf = false } },
+	}, chars = {} }
+	ns.Database:Migrate(sv)
+	check(sv.schema == ns.Database.SCHEMA, "schema not bumped")
+	check(sv.profiles.Default.general.hoverCastSelf == false, "existing profile without the key: expected off")
+	check(sv.profiles.Healer.general.hoverCastSelf == false and sv.profiles.Healer.general.rangeFade == false, "other settings lost")
+	check(sv.profiles.On.general.hoverCastSelf == true, "explicit on changed")
+	check(sv.profiles.Off.general.hoverCastSelf == false, "explicit off changed")
+	-- the explicit off survives logout's default stripping, and filling defaults keeps it
+	local p = sv.profiles.Default
+	ns.Util.StripDefaults(p, ns.Defaults)
+	check(p.general and p.general.hoverCastSelf == false, "logout stripped the explicit off")
+	ns.Util.FillDefaults(p, ns.Defaults)
+	check(p.general.hoverCastSelf == false, "defaults overwrote the explicit off")
+	-- already migrated: a profile made later (new or reset) gets the new default
+	local later = { schema = ns.Database.SCHEMA, profiles = { New = {} }, chars = {} }
+	ns.Database:Migrate(later)
+	check(later.profiles.New.general == nil, "a migration ran again on new data")
+	check(ns.Util.FillDefaults(later.profiles.New, ns.Defaults).general.hoverCastSelf == true, "new profile: expected on")
+	-- the settings window: the switch, its search, and a new key's starting value follow it
+	local O = ns.Options
+	O:Open("hovercast")
+	local found
+	for _, r in ipairs(O:Search("cast on me")) do
+		if r.entry.info.label == "New keys cast on me when nobody else fits" then found = r.entry end
+	end
+	check(found, "search 'cast on me' doesn't find the setting")
+	local selfCast
+	for _, r in ipairs(O:Search("self cast")) do
+		if r.entry.info.label == "New keys cast on me when nobody else fits" then selfCast = true end
+	end
+	check(selfCast, "search 'self cast' doesn't find the setting")
+	O:StopSearch()
+	local draftSwitch, setting
+	for _, e in ipairs(O:SearchEntries()) do
+		if e.page.id == "hovercast" and e.info.label == "If there's still nobody, cast on me (friendly spells only)" then draftSwitch = e.frame end
+		if e.info.label == "New keys cast on me when nobody else fits" then setting = e.frame end
+	end
+	check(draftSwitch and setting, "hover-cast page controls missing")
+	check(setting.setting.opt.get() == true and draftSwitch.setting.opt.get() == true, "a new key should start with cast on me on")
+	setting:GetScript("OnClick")(setting)
+	check(ns.db.general.hoverCastSelf == false and draftSwitch.setting.opt.get() == false, "turning the default off didn't reach the new key")
+	setting:GetScript("OnClick")(setting)
+	check(ns.db.general.hoverCastSelf == true, "back on")
+	O:Toggle()
+end)
+
+step("AI help: /lattice ai lists the window's settings by page, per layout, and nothing that isn't a setting", function()
+	local app = ns.app
+	MOCK.log = {}
+	check(app:HandleSlash("ai") == "ai", "/lattice ai not handled")
+	local f = LatticeAiHelpWindow
+	check(f and f:IsShown(), "AI help window not shown")
+	local t = f.box:GetText()
+	for _, want in ipairs({
+		"Lattice draws party and raid frames",
+		"General \194\187 Range:\n- general.rangeFade: Fade players who are out of range. On/off. Now: on. Default: on.",
+		"- layouts.party.width: Width (Party). Number 30 to 200, step 1. Now: 110. Default: 110.",
+		"- layouts.raid40.width: Width (Large raid). Number 30 to 200, step 1.",
+		"- layouts.raid.mode: Raid style (Raid). Choice: groups = One column per raid group; combined = All players in one grid.",
+		"- layouts.party.showSolo:",
+		"- general.hoverCastSelf: New keys cast on me when nobody else fits. On/off. Now: on. Default: on.",
+		"- appearance.backgroundColor: Background color. Colour: hex rrggbb, or r g b a",
+		"- general.hideBlizzard:",
+		"- auras.raidbuffs.which:",
+		"MORE ABOUT LATTICE",
+	}) do
+		check(t:find(want, 1, true), "AI text lacks: " .. want)
+	end
+	for _, unwanted in ipairs({ "Layout to edit", "layouts.raid.showSolo", "layouts.party.mode", "If nobody fitting is under the mouse",
+		"Preview group size", "Mouse button" }) do
+		check(not t:find(unwanted, 1, true), "AI text lists what isn't a setting: " .. unwanted)
+	end
+	f:Hide()
+	-- the settings window's button: plain (the page keeps its one gold button), opens it, closes nothing
+	ns.Options:Open("general")
+	local b = LatticeOptionsWindow.aiButton
+	check(b, "no AI help button in the settings window")
+	local r, g, bl = b.bg:GetVertexColor()
+	check(not (r == ns.Theme.accent[1] and g == ns.Theme.accent[2] and bl == ns.Theme.accent[3]), "the AI help button is a gold/primary one")
+	b:GetScript("OnClick")(b)
+	check(f:IsShown() and LatticeOptionsWindow:IsShown(), "the button didn't open AI help, or closed the settings window")
+	f:Hide()
+	ns.Options:Toggle()
+end)
+
+step("AI help: /lattice apply previews, changes only listed settings with valid values, and waits for combat", function()
+	local app, db = ns.app, ns.db
+	local text = table.concat({
+		"# wider raid frames",
+		"/lattice layouts.raid.width 100",
+		"layouts.raid.width 5000",
+		"layouts.party.orientation sideways",
+		"general.rangeAlpha 0.5",
+		"appearance.texture flat",
+		"appearance.backgroundColor 1 0 0 0.5",
+		"appearance.borderColor 3 0 0",
+		"layouts.raid.showSolo on",
+		"debug on",
+		"general.hoverCastSelf off",
+		"/run print('hi')",
+		"reset",
+		"tank Bob",
+		"/lattice show 1243",
+		"__index on",
+		"layouts.__index.width 90",
+	}, "\n")
+	local rows = app:PlanApply(text)
+	local kinds = {}
+	for _, r in ipairs(rows) do kinds[#kinds + 1] = r.err and "err" or r.kind end
+	check(table.concat(kinds, " ") == "set err err set set set err err err set err err err err err err",
+		"rows: " .. table.concat(kinds, " "))
+	check(db.layouts.raid.width == 86, "planning changed something")
+	check((app:PreviewLine(rows[1])) == "Width (Raid) (layouts.raid.width): 86 -> 100", "preview: " .. (app:PreviewLine(rows[1])))
+	MOCK.log = {}
+	local changed, skipped = app:ApplyText(text)
+	MOCK.RunTimers()
+	check(changed == 5 and skipped == 11, ("changed %d, skipped %d"):format(changed, skipped))
+	check(db.layouts.raid.width == 100 and db.layouts.party.width == 110, "layout width")
+	check(math.abs(db.general.rangeAlpha - 0.5) < 1e-9 and db.appearance.texture == "flat", "values")
+	check(db.appearance.backgroundColor[1] == 1 and db.appearance.backgroundColor[4] == 0.5, "colour")
+	check(db.general.hoverCastSelf == false, "hover default")
+	check(ns.Auras:ListMode(1243) == nil, "the apply window ran a command")
+	-- the apply window: /lattice apply opens it with the lines
+	check(app:HandleSlash("apply layouts.raid.width 90 ; general.hoverCastSelf on") == "apply", "/lattice apply")
+	local w = LatticeAiApplyWindow
+	check(w and w:IsShown() and w.changes == 2, "apply window: " .. tostring(w and w.changes))
+	w:Hide()
+	-- in combat: nothing changes until it ends, then everything that waited
+	MOCK.combat = true
+	local c2, _, _, msg, queued = app:ApplyText("layouts.raid.width 90\ngeneral.hoverCastSelf on\nappearance.texture smooth")
+	check(c2 == 0 and queued == 3, "in combat: changed " .. c2 .. ", queued " .. tostring(queued))
+	check(msg:find("3 apply when combat ends", 1, true), "message: " .. msg)
+	check(db.layouts.raid.width == 100 and db.general.hoverCastSelf == false and db.appearance.texture == "flat", "changed in combat")
+	MOCK.combat = false
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	MOCK.RunTimers()
+	check(db.layouts.raid.width == 90 and db.general.hoverCastSelf == true and db.appearance.texture == "smooth", "not applied after combat")
+	-- back to the defaults for the tests after this one
+	db.layouts.raid.width, db.general.rangeAlpha, db.appearance.texture = 86, 0.35, "lattice"
+	db.appearance.backgroundColor = ns.Util.CopyTable(ns.Defaults.appearance.backgroundColor)
+	ns:ApplySettings("all")
+	MOCK.RunTimers()
 end)
 
 step("logout strips defaults", function()

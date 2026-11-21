@@ -199,7 +199,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Slider(s, Bind("auras.raidbuffs.size", "auras", { label = "Icon size", min = 8, max = 24, step = 1, disabled = noRaidBuffs }))
 	local function notPick() return noRaidBuffs() or ns.db.auras.raidbuffs.which ~= "pick" end
 	W.Dropdown(s, {
-		label = "Which buffs",
+		label = "Which buffs", key = "auras.raidbuffs.which",
 		desc = "Only the ones I can cast: what you can rebuff yourself (all of them for classes without one).",
 		items = { { value = "mine", text = "Only the ones I can cast" }, { value = "all", text = "All raid buffs" },
 			{ value = "pick", text = "Let me pick" } },

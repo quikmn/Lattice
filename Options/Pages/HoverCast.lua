@@ -79,8 +79,23 @@ O:RegisterPage("hovercast", "Hover-casting", nil, function(s)
 		s:Add(row, 32, 4)
 	end
 
+	W.Header(s, "Cast on me", "A friendly spell lands on you when nobody fitting is under the mouse and you have no fitting target.",
+		{ "self cast", "self", "myself", "fallback", "cast on me" })
+	local draft -- the key being added (below)
+	W.Toggle(s, {
+		label = "New keys cast on me when nobody else fits", key = "general.hoverCastSelf",
+		keywords = { "self cast", "self", "myself", "fallback", "default" },
+		desc = "Turns the \"cast on me\" switch below on for each new key: a friendly spell then lands on you when nobody fitting is under the mouse and you have no fitting target. Enemy keys never cast on you. Keys you already have keep their own choice (remove and add a key to change it).",
+		get = function() return ns.db.general.hoverCastSelf ~= false end,
+		set = function(v)
+			ns.db.general.hoverCastSelf = v and true or false
+			if draft then draft.self = ns.db.general.hoverCastSelf end
+		end,
+	})
+	W.Note(s, "This is where each new key's \"cast on me\" switch starts (below). Keys you already have keep their own choice. Enemy keys never cast on you.")
+
 	W.Header(s, "Add a hover-cast key")
-	local draft = { key = nil, action = "spell", value = nil, fallback = true, side = "help", self = false, macro = "" }
+	draft = { key = nil, action = "spell", value = nil, fallback = true, side = "help", self = ns.db.general.hoverCastSelf ~= false, macro = "" }
 
 	local keyRow = CreateFrame("Frame")
 	local keyLabel = W.Text(keyRow, T.font, T.text)

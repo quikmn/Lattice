@@ -233,6 +233,7 @@ function W.Toggle(stack, opt)
 	end)
 	Tooltip(f, opt.label, opt.desc)
 	f.searchInfo = SearchInfo(opt)
+	f.setting = { type = "bool", opt = opt } -- AI help reads the controls that have a key (Options/AIHelp.lua)
 	stack:Add(f, 20)
 	f:Refresh()
 	return f
@@ -325,6 +326,7 @@ function W.Slider(stack, opt)
 	box:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Refresh() end)
 	Tooltip(f, opt.label, opt.desc)
 	f.searchInfo = SearchInfo(opt)
+	f.setting = { type = "number", opt = opt }
 	stack:Add(f, 40)
 	f:Refresh()
 	return f
@@ -466,6 +468,7 @@ function W.Dropdown(stack, opt)
 			return table.concat(t, " ")
 		end,
 	})
+	f.setting = { type = "choice", opt = opt }
 	stack:Add(f, 44)
 	f:Refresh()
 	return f
@@ -523,6 +526,7 @@ function W.Color(stack, opt)
 	end)
 	Tooltip(f, opt.label, opt.desc)
 	f.searchInfo = SearchInfo(opt)
+	f.setting = { type = "color", opt = opt }
 	stack:Add(f, 20)
 	f:Refresh()
 	return f

@@ -37,6 +37,9 @@ ns.Defaults = {
 		tankFrames = true,             -- a block with each tank (and what it targets), in raids
 		tankTargets = true,
 		tankFramesInParty = false,
+		-- hover-casting: a new key's "cast on me" switch starts on (friendly spells land on you when nobody fitting
+		-- is under the mouse and you have no fitting target). Profiles saved by 0.7.2 or earlier keep it off (Database.lua).
+		hoverCastSelf = true,
 	},
 
 	layouts = {

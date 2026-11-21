@@ -16,13 +16,14 @@ local U = ns.Util
 local DB = {}
 ns.Database = DB
 
-local SCHEMA = 3
+local SCHEMA = 4
 DB.DEFAULT_PROFILE = "Default"
 DB.SCHEMA = SCHEMA
 
 -- Saved-variable upgrades. MIGRATIONS[n] turns schema n-1 data into schema n.
 -- Profiles only store values that differ from the defaults, so changing a
--- default needs no migration; renaming or reshaping a setting does.
+-- default changes it for every profile that never set it; to keep the old
+-- behaviour for existing players, a migration writes the old value in.
 local MIGRATIONS = {
 	[2] = function(sv)
 		-- 0.2.0: hover-cast keys are stored per character.
@@ -33,6 +34,15 @@ local MIGRATIONS = {
 	[3] = function(sv)
 		-- 0.4.0: per-player tank choices (account-wide).
 		sv.tankOverrides = sv.tankOverrides or {}
+	end,
+	[4] = function(sv)
+		-- after 0.7.2: new hover-cast keys "cast on me" by default. Profiles saved before keep it off, as it was.
+		for _, p in pairs(sv.profiles or {}) do
+			if type(p) == "table" then
+				if type(p.general) ~= "table" then p.general = {} end
+				if p.general.hoverCastSelf == nil then p.general.hoverCastSelf = false end
+			end
+		end
 	end,
 }
 DB.MIGRATIONS = MIGRATIONS

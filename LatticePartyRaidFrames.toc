@@ -43,5 +43,6 @@ Options\Pages\AuraFilters.lua
 Options\Pages\ClickCast.lua
 Options\Pages\HoverCast.lua
 Options\Pages\Profiles.lua
+Options\AIHelp.lua
 
 Core\Boot.lua
