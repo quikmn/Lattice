@@ -236,7 +236,8 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	Pos(s, "auras.defensive", false, noDef)
 
 	-- Spell indicators
-	W.Header(s, "Spell indicators", "Grid-style markers for specific buffs, e.g. a green square in the corner while your Renew is up.")
+	W.Header(s, "Spell indicators", "Grid-style markers for specific buffs, e.g. a green square in the corner while your Renew is up.",
+		{ "indicator", "preset", "class", "hot", "square", "marker", "renew" })
 	W.Note(s, "Type a spell name you know (all ranks are picked up from your spellbook) or spell IDs separated by commas. Works for buffs only: the game doesn't let addons pick out specific debuffs on friendly players.")
 
 	local row = CreateFrame("Frame")

@@ -105,7 +105,7 @@ O:RegisterPage("layout", "Layout", nil, function(s)
 		get = function() return ns.db.general.showPets end,
 		set = function(v) ns.db.general.showPets = v; ns:ApplySettings("layout") end })
 
-	W.Header(s, "Position")
+	W.Header(s, "Position", nil, { "reset", "move", "anchor", "drag" })
 	W.Note(s, "Click |cffffffffUnlock frames|r at the bottom left, then drag the party, raid, pet and tank blocks where you want them.")
 	local reset = W.ConfirmButton(nil, "Reset positions", function()
 		ns.db.positions = ns.Util.CopyTable(ns.Defaults.positions)

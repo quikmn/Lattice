@@ -38,7 +38,8 @@ O:RegisterPage("profiles", "Profiles", nil, function(s)
 		lastMsg = carry and t or nil
 	end
 
-	W.Header(s, "Profiles", "A profile holds all settings except click-casting and hover-casting (those are per character). Characters can share one.")
+	W.Header(s, "Profiles", "A profile holds all settings except click-casting and hover-casting (those are per character). Characters can share one.",
+		{ "export", "import", "share", "string", "copy", "rename", "delete", "reset", "spec" })
 	W.Dropdown(s, {
 		label = "Active profile",
 		items = ProfileItems,

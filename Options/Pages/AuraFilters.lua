@@ -45,7 +45,8 @@ local function ListSection(s, mode, title, sub)
 end
 
 O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
-	W.Header(s, "Aura filters", "Pick buffs and debuffs that always show, or never show, on your frames.")
+	W.Header(s, "Aura filters", "Pick buffs and debuffs that always show, or never show, on your frames.",
+		{ "filter", "whitelist", "blacklist", "always show", "never show", "hide" })
 	W.Note(s, "|cffffffffAlways show|r puts the aura first in the buff or debuff row, even when someone else cast it. |cffffffffNever show|r hides it everywhere: icons, the boss slot and the dispel highlight.")
 	W.Note(s, "Quick way: |cffffffffCtrl+Alt+Right-click|r a frame (out of combat) and pick one of that player's auras.")
 	W.Note(s, "Buffs always work. For debuffs on friendly players the game only lets addons pick out a few spells by ID (such as Recently Bandaged); other debuffs keep showing as usual.", T.muted)
@@ -95,7 +96,8 @@ O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
 	ListSection(s, "hide", "Never show", nil)
 
 	-- Share
-	W.Header(s, "Share", "Plain text, one per line: |cffffffffshow 10060|r or |cffffffffhide Flurry|r. Lines starting with # are ignored.")
+	W.Header(s, "Share", "Plain text, one per line: |cffffffffshow 10060|r or |cffffffffhide Flurry|r. Lines starting with # are ignored.",
+		{ "export", "import", "copy", "paste", "reset" })
 	local area = W.TextArea(nil, 520, 110)
 	s:Add(area, 110)
 	local msg
@@ -120,7 +122,7 @@ O:RegisterPage("aurafilters", "Aura filters", nil, function(s)
 		ns:Printf("Aura filters: %d spell(s) %s.%s", n, replace and "now make up the lists" or "added", skipped)
 		Rebuild()
 	end
-	local addBtn = W.Button(ioRow, "Add from text", function() import(false) end, 120, "accent")
+	local addBtn = W.Button(ioRow, "Add from text", function() import(false) end, 120)
 	addBtn:SetPoint("LEFT", exp, "RIGHT", 6, 0)
 	local repl = W.ConfirmButton(ioRow, "Replace with text", function() import(true) end, 156)
 	repl:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)

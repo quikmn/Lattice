@@ -105,8 +105,11 @@ end
 ------------------------------------------------------------------------
 -- Static text
 ------------------------------------------------------------------------
-function W.Header(stack, text, sub)
+-- Headings are found by the settings search too (by their text, sub line and `keywords`), so a section that holds
+-- buttons and lists rather than switches (spell indicators, sharing, profiles) can still be found.
+function W.Header(stack, text, sub, keywords)
 	local f = CreateFrame("Frame")
+	f.searchInfo = SearchInfo({ label = text, desc = sub, keywords = keywords })
 	local title = Text(f, T.fontTitle, T.text)
 	title:SetPoint("TOPLEFT")
 	title:SetText(text)

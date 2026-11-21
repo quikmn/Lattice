@@ -83,7 +83,7 @@ O:RegisterPage("general", "General", nil, function(s)
 		end,
 	})
 
-	W.Header(s, "Troubleshooting")
+	W.Header(s, "Troubleshooting", nil, { "status", "probe", "error", "bug" })
 	W.Note(s, "|cffffffff/lattice status|r explains why frames or auras are or aren't showing. |cffffffff/lattice probe|r lists which values the game is hiding from addons right now; handy inside a dungeon or in combat.")
 	W.Toggle(s, {
 		label = "Debug messages in chat", keywords = { "logging", "verbose", "troubleshoot" },

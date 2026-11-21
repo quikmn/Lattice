@@ -959,6 +959,64 @@ step("enemy hover keys list harmful spells, not everything that isn't helpful", 
 		"either side without self falls back to you")
 end)
 
+step("AFK: the status and the health text never share the spot", function()
+	local btn
+	for _, b in ipairs(ns.Buttons.all) do if b.unit and b:IsVisible() then btn = b; break end end
+	check(btn, "no frame with a unit")
+	ns.db.appearance.statusText = "deficit"
+	local afk = true
+	UnitIsAFK = function() return afk end
+	ns.Buttons:UpdateAll(btn)
+	local v = btn.visual
+	check(v.status:IsShown() and v.status:GetText() == "AFK", "AFK not shown")
+	MOCK.Fire("UNIT_HEALTH", btn.unit)
+	check(not v.healthText:IsShown(), "health text drawn over AFK after a health change")
+	afk = false
+	MOCK.Fire("PLAYER_FLAGS_CHANGED", btn.unit)
+	check(not v.status:IsShown() and v.healthText:IsShown(), "health text didn't come back after AFK")
+	UnitIsAFK = function() return false end
+end)
+
+step("names sit above the aura icons; the leader icon beside the role icon", function()
+	local btn = ns.Buttons.all[1]
+	local v = btn.visual
+	check(v.name:GetParent() == v.text and v.text:GetFrameLevel() >= v.over:GetFrameLevel() + 10,
+		"name not above the big dispel icon")
+	local anchor
+	rawset(v.leader, "SetPoint", function(_, point, rel, relPoint) anchor = { point, rel, relPoint } end)
+	ns.Buttons:ApplyLayout(btn)
+	check(anchor and anchor[2] == v.role and anchor[1] == "LEFT" and anchor[3] == "RIGHT", "leader not beside the role icon")
+	ns.db.appearance.roleIconPoint = "TOPRIGHT"
+	ns.Buttons:ApplyLayout(btn)
+	check(anchor[1] == "RIGHT" and anchor[3] == "LEFT", "leader should sit left of a top-right role icon")
+	ns.db.appearance.roleIconPoint = "TOPLEFT"
+	rawset(v.leader, "SetPoint", nil)
+	ns.Buttons:ApplyLayout(btn)
+end)
+
+step("settings search finds sections made of buttons and lists", function()
+	local O = ns.Options
+	O:Open()
+	for _, q in ipairs({ "export", "import", "preset", "indicator", "filter", "reset position", "copy profile" }) do
+		check(#O:Search(q) >= 1, "search found nothing for " .. q)
+	end
+	O:StopSearch()
+	O:Toggle()
+end)
+
+step("one failing out-of-combat job doesn't drop the others", function()
+	MOCK.combat = true
+	local ran = false
+	ns:RunOutOfCombat("test-broken", function() error("boom") end)
+	ns:RunOutOfCombat("test-after", function() ran = true end)
+	MOCK.combat = false
+	local before = #MOCK.errors
+	MOCK.Fire("PLAYER_REGEN_ENABLED")
+	check(ran, "the job after a failing one never ran")
+	check(#MOCK.errors == before + 1, "the failure wasn't reported")
+	table.remove(MOCK.errors)
+end)
+
 step("logout strips defaults", function()
 	MOCK.Fire("PLAYER_LOGOUT")
 	local p = LatticeDB.profiles.Default
