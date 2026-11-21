@@ -156,18 +156,18 @@ local function Render(btn)
 	v.fakeDebuff:SetSize(deb.size, deb.size)
 	v.fakeDebuff:ClearAllPoints()
 	v.fakeDebuff:SetPoint(deb.point, v.health, deb.point, deb.x, deb.y)
-	v.fakeDebuff:SetShown(D.enabled and deb.enabled and d.debuff and not d.dead)
+	v.fakeDebuff:SetShown(D.enabled and deb.enabled and d.debuff and not d.dead and not d.offline)
 	local hot = D.buffs
 	v.fakeHot:SetSize(hot.size, hot.size)
 	v.fakeHot:ClearAllPoints()
 	v.fakeHot:SetPoint(hot.point, v.health, hot.point, hot.x, hot.y)
-	v.fakeHot:SetShown(D.enabled and hot.enabled and d.hot and not d.dead)
-	local showDispel = D.enabled and D.dispel.enabled and d.dispel and not d.dead
+	v.fakeHot:SetShown(D.enabled and hot.enabled and d.hot and not d.dead and not d.offline)
+	local showDispel = D.enabled and D.dispel.enabled and d.dispel and not d.dead and not d.offline
 	local style = D.dispel.style
 	v.fakeDispel:SetShown(showDispel and style ~= "overlay" and true or false)
 	v.fakeDispelTint:SetShown(showDispel and (style == "overlay" or style == "both") and true or false)
 	local big = v.fakeDispelIcon
-	if D.enabled and D.dispel.icon and d.dispel and not d.dead then
+	if D.enabled and D.dispel.icon and d.dispel and not d.dead and not d.offline then
 		local col = D.dispel.colors[d.dispel] or { 1, 1, 1, 1 }
 		local size = D.dispel.iconSize or 24
 		big:SetSize(size, size)

@@ -119,10 +119,16 @@ function B:Build(btn)
 	over:SetFrameLevel(v:GetFrameLevel() + 6)
 	v.over = over
 
-	v.name = over:CreateFontString(nil, "OVERLAY")
+	-- Name and health text sit above the aura icons too: the big dispel icon in the middle of the frame
+	-- would otherwise cover who it is.
+	local text = CreateFrame("Frame", nil, over)
+	text:SetAllPoints()
+	text:SetFrameLevel(over:GetFrameLevel() + 20)
+	v.text = text
+	v.name = text:CreateFontString(nil, "OVERLAY")
 	v.name:SetWordWrap(false)
-	v.status = over:CreateFontString(nil, "OVERLAY")
-	v.healthText = over:CreateFontString(nil, "OVERLAY")
+	v.status = text:CreateFontString(nil, "OVERLAY")
+	v.healthText = text:CreateFontString(nil, "OVERLAY")
 
 	v.role = over:CreateTexture(nil, "OVERLAY")
 	v.role:SetTexture(ROLE_TEX)
@@ -188,8 +194,10 @@ end
 
 -- Smoothing is for one player's health changing, not for a button that just
 -- switched to another player (roster reshuffles): jump straight to the value.
+local SNAP = { "health", "power", "healBar", "absorbBar", "healAbsorbBar" }
 local function SnapBars(v)
-	for _, bar in ipairs({ v.health, v.power, v.healBar, v.absorbBar, v.healAbsorbBar }) do
+	for i = 1, #SNAP do
+		local bar = v[SNAP[i]]
 		if bar.SetToTargetValue then bar:SetToTargetValue() end
 	end
 end
@@ -328,7 +336,12 @@ function B:ApplyLayout(btn)
 	v.role:SetPoint(A.roleIconPoint, v.health, A.roleIconPoint, A.roleIconPoint:find("LEFT") and 2 or -2, A.roleIconPoint:find("TOP") and -2 or 2)
 	v.leader:SetSize(rs, rs)
 	v.leader:ClearAllPoints()
-	v.leader:SetPoint("BOTTOMLEFT", v.role, "TOPLEFT", 0, -rs / 2)
+	-- beside the role icon, on the side towards the middle of the frame (it used to sit on top of it)
+	if A.roleIconPoint:find("RIGHT") then
+		v.leader:SetPoint("RIGHT", v.role, "LEFT", -1, 0)
+	else
+		v.leader:SetPoint("LEFT", v.role, "RIGHT", 1, 0)
+	end
 	v.raidIcon:SetSize(A.raidIconSize, A.raidIconSize)
 	v.raidIcon:ClearAllPoints()
 	v.raidIcon:SetPoint(A.raidIconPoint, v.health, A.raidIconPoint, 0, A.raidIconPoint:find("TOP") and 2 or 0)
@@ -368,6 +381,36 @@ local function GoneState(unit)
 		+ (UnitIsGhost and UnitIsGhost(unit) and 4 or 0)
 end
 
+-- The secret-value calls below run inside S.Try (a pcall). They are plain functions taking their arguments, not
+-- closures made per call: health and range update many times a second across 40 frames.
+local function ApplyGradient(bar, unit, curve)
+	bar:SetStatusBarColor(UnitHealthPercent(unit, true, curve):GetRGB())
+end
+
+local function ApplyLowHealth(tex, unit, curve)
+	tex:SetAlpha(UnitHealthPercent(unit, true, curve))
+end
+
+local function ApplyPercent(fs, unit, scale)
+	fs:SetFormattedText("%d%%", UnitHealthPercent(unit, true, scale))
+	fs:SetAlpha(1)
+end
+
+local function ApplyDeficit(fs, unit)
+	local missing = UnitHealthMissing(unit, true)
+	if AbbreviateNumbers then
+		fs:SetFormattedText("-%s", AbbreviateNumbers(missing))
+	else
+		fs:SetFormattedText("-%d", missing)
+	end
+	local notFull = S.NotFullCurve()
+	fs:SetAlpha(notFull and UnitHealthPercent(unit, true, notFull) or 1)
+end
+
+local function ApplyRange(v, unit, spell, outAlpha)
+	v:SetAlpha(S.SpellRangeAlpha(unit, spell, outAlpha))
+end
+
 function B:UpdateHealthColor(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	if not unit then return end
@@ -392,10 +435,7 @@ function B:UpdateHealthColor(btn)
 		v.health:SetStatusBarColor(c[1], c[2], c[3])
 	elseif A.healthColor == "gradient" then
 		local curve = S.HealthGradientCurve()
-		local ok = curve and S.Try("health-gradient", function()
-			local color = UnitHealthPercent(unit, true, curve)
-			v.health:SetStatusBarColor(color:GetRGB())
-		end)
+		local ok = curve and S.Try("health-gradient", ApplyGradient, v.health, unit, curve)
 		if not ok then v.health:SetStatusBarColor(r, g, b) end
 	else
 		v.health:SetStatusBarColor(r, g, b)
@@ -435,9 +475,7 @@ function B:UpdateLowHealth(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	if not unit or not A.lowHealth or btn.tankTarget or IsGone(unit) then v.low:Hide() return end
 	local curve = S.LowHealthCurve((A.lowHealthThreshold or 30) / 100, B.LOW_HEALTH_ALPHA)
-	local ok = curve and S.Try("low-health", function()
-		v.low:SetAlpha(UnitHealthPercent(unit, true, curve))
-	end)
+	local ok = curve and S.Try("low-health", ApplyLowHealth, v.low, unit, curve)
 	v.low:SetShown(ok and true or false)
 end
 
@@ -464,28 +502,17 @@ end
 function B:UpdateHealthText(btn)
 	local unit, v, A = btn.unit, btn.visual, Appearance()
 	local mode = A.statusText
-	if not unit or mode == "none" or IsGone(unit) then
+	-- "AFK" (or Dead, Offline) sits in the same spot: the health text waits until it is gone
+	if not unit or mode == "none" or IsGone(unit) or v.status:IsShown() then
 		v.healthText:Hide()
 		return
 	end
 	local ok
 	if mode == "percent" then
 		local scale = S.PercentCurve()
-		ok = scale and S.Try("health-percent", function()
-			v.healthText:SetFormattedText("%d%%", UnitHealthPercent(unit, true, scale))
-			v.healthText:SetAlpha(1)
-		end)
+		ok = scale and S.Try("health-percent", ApplyPercent, v.healthText, unit, scale)
 	elseif mode == "deficit" then
-		ok = S.Try("health-deficit", function()
-			local missing = UnitHealthMissing(unit, true)
-			if AbbreviateNumbers then
-				v.healthText:SetFormattedText("-%s", AbbreviateNumbers(missing))
-			else
-				v.healthText:SetFormattedText("-%d", missing)
-			end
-			local notFull = S.NotFullCurve()
-			v.healthText:SetAlpha(notFull and UnitHealthPercent(unit, true, notFull) or 1)
-		end)
+		ok = S.Try("health-deficit", ApplyDeficit, v.healthText, unit)
 	end
 	v.healthText:SetShown(ok and true or false)
 end
@@ -575,8 +602,9 @@ function B:UpdateStatus(btn)
 		v.status:SetText(text)
 		v.status:Show()
 		v.healthText:Hide()
-	else
+	elseif v.status:IsShown() then
 		v.status:Hide()
+		self:UpdateHealthText(btn) -- back from AFK: the health text returns at once
 	end
 	local rez = UnitHasIncomingResurrection and S.Plain(UnitHasIncomingResurrection(unit), false)
 	v.rez:SetShown(rez and UnitIsDeadOrGhost(unit) and true or false)
@@ -622,9 +650,7 @@ function B:UpdateRange(btn)
 		v:SetAlpha(G.rangeAlpha)
 		return
 	end
-	S.Try("range", function()
-		v:SetAlpha(S.SpellRangeAlpha(unit, G.rangeBySpell ~= false and B.RangeSpell() or nil, G.rangeAlpha))
-	end)
+	S.Try("range", ApplyRange, v, unit, G.rangeBySpell ~= false and B.RangeSpell() or nil, G.rangeAlpha)
 end
 
 function B:UpdateRole(btn)
