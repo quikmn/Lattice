@@ -1,5 +1,16 @@
 # Lattice Party & Raid Frames
 
+## Unreleased
+- Names and health text stay readable on top of the big dispel icon (it used to cover them).
+- The leader crown sits beside the role icon instead of on top of it.
+- "AFK" and the health text no longer print over each other; the health text comes back as soon as the player is back.
+- Raids: a burst of roster changes refreshes the frames once instead of once per change, and health and range updates make no throwaway functions, so less memory churn in big groups.
+- The preview no longer shows auras or a dispel highlight on an offline player.
+- Settings search also finds sections: type export, import, preset, indicator, filter, profile or reset position.
+- Aura filters: one highlighted button (Always show); Add from text is a plain button. The dispel highlight's "How" is now "Frame color style".
+- Fix: if one change waiting for combat to end failed, the changes queued after it were skipped until the next fight.
+- An old "Lattice" folder that is turned off at login no longer reacts to game events for the rest of the session.
+
 ## v0.7.2 (2026-11-20)
 - Settings window: switches, buttons and sliders use a softer shade of the accent colour, an on switch has a dark knob so it stands out, and boxes have cleaner rounded edges.
 
