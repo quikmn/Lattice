@@ -131,7 +131,7 @@ O:RegisterPage("auras", "Auras", nil, function(s)
 	W.Slider(s, Bind("auras.dispel.iconSize", "auras", { label = "Big icon size", min = 14, max = 40, step = 1, disabled = noIcon }))
 	W.Toggle(s, Bind("auras.dispel.enabled", "auras", { label = "Color the frame too", keywords = { "dispel", "highlight", "colour" }, disabled = Off() }))
 	W.Dropdown(s, Bind("auras.dispel.style", "auras", {
-		label = "How",
+		label = "Frame color style", keywords = { "how" },
 		items = { { value = "border", text = "Colored border" }, { value = "both", text = "Border and a light tint" },
 			{ value = "overlay", text = "Tint the whole frame" }, { value = "icon", text = "Small square in the corner" } },
 		disabled = noDispel,

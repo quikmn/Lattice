@@ -816,9 +816,17 @@ function B:RegisterEvents()
 		ForAll(B.UpdatePowerVisibility)
 		ForAll(B.UpdateAggro)
 	end)
+	-- A raid filling up sends a burst of roster events; the full refresh of every frame (which also reads auras for
+	-- the missing buff mark) runs once per burst. Buttons that got a new player update at once (SetUnit).
+	local rosterPending = false
 	ns:RegisterEvent("GROUP_ROSTER_UPDATE", function()
-		ForAll(B.UpdateAll)
 		ns.Headers:OnRosterChanged()
+		if rosterPending then return end
+		rosterPending = true
+		C_Timer.After(0.1, function()
+			rosterPending = false
+			ForAll(B.UpdateAll)
+		end)
 	end)
 	ns:RegisterEvent("PLAYER_ENTERING_WORLD", function() ForAll(B.UpdateAll) end)
 
