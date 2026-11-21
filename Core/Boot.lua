@@ -69,6 +69,10 @@ ns:RegisterEvent("ADDON_LOADED", function(_, name)
 	if oldCopyLoaded() then
 		ns.oldCopy = true
 		pcall(C_AddOns.DisableAddOn, OLD)
+		-- idle: the other modules' handlers would run with no settings loaded
+		ns:StandDown("PLAYER_LOGIN", function()
+			ns:Print("An old copy in the AddOns folder \"Lattice\" was found and turned off. Type /reload, then delete that folder. Your settings are kept.")
+		end)
 		return
 	end
 	ns.Database:Initialize()
@@ -76,10 +80,6 @@ ns:RegisterEvent("ADDON_LOADED", function(_, name)
 end)
 
 ns:RegisterEvent("PLAYER_LOGIN", function()
-	if ns.oldCopy then
-		ns:Print("An old copy in the AddOns folder \"Lattice\" was found and turned off. Type /reload, then delete that folder. Your settings are kept.")
-		return
-	end
 	ns.Buttons:RegisterEvents()
 	ns.Roles:Enable()
 	ns.Headers:Create()

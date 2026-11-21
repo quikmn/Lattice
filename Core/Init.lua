@@ -65,6 +65,13 @@ function ns:UnregisterEvent(event, handler)
 	end
 end
 
+-- Drop every event handler (this copy stays idle), then listen to one event only.
+function ns:StandDown(event, handler)
+	for e in pairs(handlers) do eventFrame:UnregisterEvent(e) end
+	wipe(handlers)
+	if event then ns:RegisterEvent(event, handler) end
+end
+
 ------------------------------------------------------------------------
 -- Internal callbacks (settings changed, profile switched, ...)
 ------------------------------------------------------------------------
@@ -109,6 +116,13 @@ ns:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 		local key = order[i]
 		local job = pending[key]
 		pending[key] = nil
-		if job then job() end
+		-- one job failing must not drop the rest (they would wait until the next fight ends)
+		if job then
+			local ok, err = pcall(job)
+			if not ok then
+				local handler = geterrorhandler and geterrorhandler()
+				if handler then handler(err) end
+			end
+		end
 	end
 end)
