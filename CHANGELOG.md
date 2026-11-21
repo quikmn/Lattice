@@ -1,6 +1,6 @@
 # Lattice Party & Raid Frames
 
-## Unreleased
+## v0.8.0 (2026-11-21)
 - Names and health text stay readable on top of the big dispel icon (it used to cover them).
 - The leader crown sits beside the role icon instead of on top of it.
 - "AFK" and the health text no longer print over each other; the health text comes back as soon as the player is back.
