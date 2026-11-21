@@ -624,6 +624,31 @@ step("settings upgrade from schema 1", function()
 	check(type(sv.chars["A-B"].hover) == "table", "hover list not created")
 end)
 
+step("character key on client build 71037: GetRealmName \"\", GetRealmID 0, no realm from UnitFullName", function()
+	local DB = ns.Database
+	local realFull, realName, realID = UnitFullName, GetRealmName, GetRealmID
+	check(DB:CharKey({}):match("%-MockRealm$"), "the usual key changed: " .. DB:CharKey({}))
+	-- WoW Forever: the second value is the surname; the key stays what it always was
+	UnitFullName = function() return "Miy", "Sake" end
+	check(DB:CharKey({}) == "Miy-Sake", "surname key changed")
+	-- nothing from UnitFullName and an empty realm name: the realm ID from the GUID, never "Miy-"
+	UnitFullName = function() return "Miy", nil end
+	GetRealmName = function() return "" end
+	GetRealmID = function() return 0 end
+	local sv = { chars = {} }
+	local key = DB:CharKey(sv)
+	check(key == "Miy-realm:1", "ID-only key expected, got " .. key)
+	sv.realmNames = { [1] = "Mock Realm" }
+	check(DB:CharKey(sv) == "Miy-MockRealm", "saved name for the ID not used")
+	-- a character saved as "Miy-" is adopted when it is the only Miy; left (and reported) when another Miy exists
+	sv = { chars = { ["Miy-"] = { profile = "Raid" } } }
+	key = DB:CharKey(sv)
+	check(DB:AdoptNameless(sv, key, "Miy") == nil and sv.chars[key].profile == "Raid" and not sv.chars["Miy-"], "not adopted")
+	sv = { chars = { ["Miy-"] = { profile = "Raid" }, ["Miy-OtherRealm"] = { profile = "Default" } } }
+	check(DB:AdoptNameless(sv, DB:CharKey(sv), "Miy") == "Miy-" and sv.chars["Miy-"], "an ambiguous one was moved")
+	UnitFullName, GetRealmName, GetRealmID = realFull, realName, realID
+end)
+
 step("options window: every page builds", function()
 	ns.Options:Open()
 	for _, id in ipairs({ "general", "layout", "appearance", "auras", "aurafilters", "clickcast", "hovercast", "profiles" }) do

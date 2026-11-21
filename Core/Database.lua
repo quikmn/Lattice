@@ -63,10 +63,34 @@ function DB:Migrate(sv)
 	sv.schema = math.max(sv.schema or SCHEMA, from)
 end
 
-function DB:CharKey()
-	local name, realm = UnitFullName("player")
-	realm = realm or GetRealmName() or "?"
-	return (name or "?") .. "-" .. realm:gsub("%s", "")
+-- "Name-Second": UnitFullName's second value (the realm, or on WoW Forever with regional unique names the surname; the
+-- key is the same as it always was there). When the game gives no second value: the realm's name, else the realm ID
+-- from the GUID ("Name-realm:6946"), never "Name-" (GetRealmName() returns "" since client build 71037).
+function DB:CharKey(sv)
+	local R = ns.Realm
+	local name, second = UnitFullName("player")
+	name = R.text(name) or R.text(UnitName("player")) or "?"
+	second = R.text(second)
+	if second then second = second:gsub("%s", "") end
+	if not second then
+		if sv and type(sv.realmNames) ~= "table" then sv.realmNames = {} end
+		local key = R.read(sv and sv.realmNames)
+		second = key and (key:gsub("%s", "")) or "?"
+	end
+	return name .. "-" .. second, name
+end
+
+-- A character saved as "Name-" (the realm left out while the game said nothing) is this character when no other
+-- "Name-..." is saved; else it is left as it is and /lattice status says so. Returns the old key left, or nil.
+function DB:AdoptNameless(sv, key, name)
+	local old = name .. "-"
+	if key == old or type(sv.chars[old]) ~= "table" then return nil end
+	if sv.chars[key] then return old end
+	for k in pairs(sv.chars) do
+		if k ~= old and k:sub(1, #old) == old then return old end
+	end
+	sv.chars[key], sv.chars[old] = sv.chars[old], nil
+	return nil
 end
 
 function DB:Initialize()
@@ -80,7 +104,8 @@ function DB:Initialize()
 	sv.schema = sv.schema or 1
 	self:Migrate(sv)
 
-	local key = self:CharKey()
+	local key, name = self:CharKey(sv)
+	DB.namelessLeft = self:AdoptNameless(sv, key, name)
 	sv.chars[key] = sv.chars[key] or {}
 	local char = sv.chars[key]
 	char.profile = char.profile or DB.DEFAULT_PROFILE

@@ -1,5 +1,8 @@
 # Lattice Party & Raid Frames
 
+## Unreleased
+- Your per-character settings (profile, click-casting) can't end up under a nameless "Name-" entry when the game doesn't say the realm, as after today's WoW Forever client update: the realm then comes from your character. Nothing changes for characters whose settings were already found.
+
 ## v0.8.0 (2026-11-21)
 - Names and health text stay readable on top of the big dispel icon (it used to cover them).
 - The leader crown sits beside the role icon instead of on top of it.

@@ -253,6 +253,10 @@ function ns.Status()
 	ns:Printf("status: inGroup=%s inRaid=%s members=%s layout=%s buttons=%d preview=%s",
 		tostring(IsInGroup()), tostring(IsInRaid()), tostring(GetNumGroupMembers()),
 		tostring(H.activeLayout), #ns.Buttons.all, tostring(ns.TestMode:IsActive()))
+	if ns.Database.namelessLeft then
+		ns:Print("  Settings saved as \"" .. ns.Database.namelessLeft .. "\" (no realm: the game didn't say it) can't be told apart from"
+			.. " another character of that name, so they are kept as they are.")
+	end
 	local function dump(label, hdr)
 		if not hdr then ns:Print("  " .. label .. ": NOT CREATED") return end
 		local units, n = {}, 0

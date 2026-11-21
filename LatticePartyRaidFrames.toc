@@ -16,6 +16,7 @@ Core\Init.lua
 Core\Util.lua
 Options\Theme.lua
 Core\Defaults.lua
+Core\Realm.lua
 Core\Database.lua
 Core\Profiles.lua
 
